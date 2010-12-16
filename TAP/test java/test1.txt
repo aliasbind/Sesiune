@@ -1,0 +1,8 @@
+Sa se permita sortarea fisierelor dintr-un director specificat in functie de:
+1. nume
+2. tip si nume
+3. dimensiune
+4. numarul de aparitii ale unei expresii regulate date
+sortarile se vor face in complexitate O(NlogN), N numarul de fisiere
+
+timp de lucru 1h

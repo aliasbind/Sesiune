@@ -1,0 +1,18 @@
+Se da interfata Lista<T>
+Lista<T>{
+void adauga(T info);
+void sterge(T info);
+T elementAt(int i);
+}
+
+Se citesc din fisierul studenti.csv informatii despre studentii seriei 24.
+Fisierul are structura:
+nume;prenume;grupa;medie_anul_1;
+Fiecare student va fi inclus intr-o lista de tipul ListaStudenti,
+care va contine in ordine grupele 241, 242, 243.
+(Clasa ListaStudneti va implementa interfata Lista)
+ 
+Dupa adaugare tuturor liniilor din fisier, se vor permite urmatoarele operatii:
+stergera unui student din lista, 
+modificarea mediei,
+calcularea mediei pt grupele 241, 242, 243.
