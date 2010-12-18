@@ -1,0 +1,1181 @@
+Cursul 9 - Intrari/iesiri
+=========================
+
+ SO trebuie sa controleze toate echipamentele (dispozitivele) de I/O,
+oferind totodata o interfata simpla si usor de folosit intre echipamente
+si restul sistemului. Interfata trebuie sa fie, pe cat posibil, aceeasi
+pentru toate echipamentele (independenta de echipament).
+
+1. Principiile hardware-ului de I/O:
+------------------------------------
+
+ In continuare facem o descriere generala a hardware-ului de I/O d.p.v. al
+programarii sale.
+
+Echipamente de I/O (I/O devices):
+---------------------------------
+
+ Majoritatea echipamentelor de I/O pot fi impartite in doua categorii:
+- ECHIPAMENTE BLOC (BLOCK DEVICES) (sau: echipamente orientate pe blocuri):
+ pastreaza informatia in blocuri de dimensiune fixa, fiecare bloc avand
+ propria sa adresa si putand fi citit/scris independent de celelalte; ex:
+ discurile;
+- ECHIPAMENTE CARACTER (CHARACTER DEVICES) (sau: echipamente orientate pe
+ caractere): primeste sau transmite un flux de caractere, fara nici o
+ referire la vreo structura de bloc; echipamentul nu este adresabil si nu
+ are o operatie de cautare; ex: imprimanta, placa de retea, mouse.
+
+ Delimitarea dintre cele doua categorii nu este prea clara; in plus, exista
+echipamente ce nu intra in nici una dintre aceste categorii, ex: ceasurile.
+
+ Totusi modelul de echipamente bloc si caracter este suficient de general si
+sta la baza independentei de echipament a partii din SO ce se ocupa de I/O;
+de ex. sistemul de fisiere lucreaza cu echipamente bloc abstracte, lasand ca
+de partea dependenta de echipament sa se ocupe softul de nivel mai inferior.
+
+ Echipamentele de I/O au o mare varietate de viteze, ceea ce ingreuneaza
+sarcina softului de a se comporta bine indiferent de vitezele cu care aceste
+echipamente transfera date.
+
+Controloare de echipamente (device controllers):
+------------------------------------------------
+
+ Unitatile de I/O sunt formate in general din doua componente (care uneori
+sunt separate, permitand o proiectare mai modulara si mai generala):
+- o componenta mecanica - echipamentul propriuzis;
+- o componenta electronica, numita CONTROLOR DE ECHIPAMENT (DEVICE
+ CONTROLLER) sau ADAPTOR (ADAPTER); la calculatoarele personale acesta este
+ prezent uneori sub forma unei placi cu circuit electronic ce poate fi
+ introdusa intr-un slot de expandare; de multe ori controloarele au
+ conectori la care pot fi conectate prin cablu echipamentele, si mai multe
+ echipamente de acelasi fel pot fi conectate la un acelasi controlor.
+
+ Daca interfata dintre controlor si echipament este una standardizata (ex:
+ANSI, IEEE, ISO), companiile pot produce diverse controloare sau dispozitive
+care se potrivesc cu acea interfata; ex: multe companii produc discuri ce
+corespund interfetelor IDE sau SCSI.
+
+ Interfata dintre controlor si echipament este de regula una de nivel foarte
+inferior; de exemplu:
+- presupunem ca un disc este formatat cu 256 sectoare a cate 512 octeti pe
+ fiecare pista; ceea ce trimite efectiv discul este un flux serial de biti
+ care incepe cu un PREAMBUL (PREAMBLE), urmat de cei 4096 biti ai unui
+ sector, urmat de o suma de control numita ECC (ERROR-CORRECTING CODE - cod
+ corector de erori); preambulul este scris la formatarea discului si contine
+ numarul cilindrului si al sectorului, dimensiunea unui sector, informatii
+ de sincronizare, etc.;
+  rolul controlorului este de a converti fluxul serial de biti in blocuri de
+ octeti si de a efectua corectia erorilor; initial blocul este asamblat bit
+ cu bit intr-un tampon (buffer) din interiorul controlorului; dupa ce suma
+ lui de control este verificata si blocul declarat fara erori, el poate fi
+ copiat in memoria principala;
+- controlorul unui monitor CRT functioneaza tot ca un echipament serial la
+ nivel de bit, de nivel inferior; el citeste din memorie octeti cu caractere
+ ce trebuie afisate si genereaza semnale ce moduleaza fasciculul de
+ electroni pentru a le scrie pe ecran, sau il fac sa se repozitioneze
+ orizontal/vertical dupa ce a parcurs o linie/ecranul;
+  SO doar initializeaza controlorul cu niste parametri (nr. de caractere sau
+ pixeli pe linie, nr. de linii, etc.), apoi il lasa sa aibe grija efectiv de
+ dirijarea fascicolului; in absenta controlorului, SO ar fi trebuit sa
+ contina si cod explicit pentru scanarea analogica a tubului catodic.
+
+I/O cu corespondenta in memorie (Memory-Mapped I/O):
+----------------------------------------------------
+
+ Fiecare controlor are cativa registri de control folositi pentru a comunica cu
+procesorul (prin acesti registri SO poate transmite comenzi sau poate
+consulta starea echipamentului).
+ De asemenea, multe echipamente au o memorie tampon de date in care SO poate
+citi sau scrie (ex. memoria video este o memorie tampon de tip RAM, in care
+se scriu date ce se vor transforma in pixeli pe ecran).
+
+ Procesorul poate comunica cu registrii de control si memoria tampon a unui
+echipament in urmatoarele feluri:
+
+(a) - fiecarui registru i se asociaza un numar de PORT DE I/O (I/O PORT),
+ care este un intreg pe 8 sau 16 biti; folosind instructiuni speciale de I/O
+ ca:
+      IN REG, PORT
+      OUT PORT, REG
+
+ procesorul poate copia registrul de control PORT in registrul sau REG,
+ respectiv invers;
+  spatiul de adrese pentru memorie si cel pentru I/O sunt diferite; astfel,
+ instructiunile "IN REG,4" si "MOV REG,4" au semnificatii diferite: prima
+ citeste in registrul REG continutul portului 4, a doua citeste in REG
+ cuvantul de memorie de la adresa 4 (deci cei doi 4 se refera la zone de
+ adrese de memorie diferite si independente);
+  aceasta metoda a fost folosita de de cele mai multe dintre primele
+ calculatoare si mainframe-uri, inclusiv IBM 360 si succesorii sai;
+
+(b) - registrii de control sunt pusi in spatiul de adrese de memorie -
+ fiecarui registru de control ii este repartizata o adresa unica de
+ memorie, careia nu-i corespunde o celula de memorie; acest sistem s.n.
+ I/O CU CORESPONDENTA IN MEMORIE(MEMORY-MAPPED I/O) (a fost introdusa de
+ minicalculatorul PDP-11);
+  de regula adresele alocate registrilor de control se afla la sfarsitul
+ spatiului de adrese;
+
+(c) - o schema hibrida foloseste memorie tampon de I/O in spatiul de adrese
+ de memorie si porturi de I/O penru registrii de control;
+  Pentium utilizeaza aceasta arhitectura, cu adresele 640K - 1M rezervate
+ pentru memoriile tampon ale echipamentelor compatibile cu IMB PC, si
+ porturi de I/O de la 0 la 64K.
+
+ Toate aceste scheme functioneaza astfel: cand procesorul vrea sa citeasca
+un cuvant, fie din memorie fie dintr-un port de I/O, pune adresa dorita pe
+liniile de adresa ale magistralei (bus), pe o alta linie specificatia daca
+este vorba de spatiul de adrese de memorie sau spatiul de I/O, apoi
+transmite un semnal READ pe linia de control; atunci fie memorie fie
+echipamentul de I/O va raspunde cererii. Daca exista doar spatiu de memorie
+(varianta (b) de mai sus), atunci fiecare modul de memorie si fiecare
+echipament de I/O compara liniile de adresa cu domeniul de adrese pe care il
+foloseste, iar daca adresa se afla in domeniul sau, raspunde cererii
+(intrucat nici o adresa nu este repartizata atat memoriei cat si
+echipamentelor de I/O, nu exista ambiguitate).
+
+ Avantajele sistemului I/O cu corespondenta in memorie:
+- in cazul (a) sunt necesare instructiuni speciale de I/O pentru citirea/
+ scrierea la porturi (IN/OUT), care nu se regasesc in limbajele C/C++, a.i.
+ este necesara folosirea limbajului de asamblare; in cazul (b) registrii de
+ control ai echipamentelor se pot asimila cu simple variabile alocate in
+ memorie si se pot accesa in C/C++ ca orice alta variabila - deci driverele
+ pentru echipamente pot fi scrise in C/C++;
+- nu este necesar un mecanism de protectie suplimentar pentru a impiedica
+ procesele utilizator sa efectueze operatii de I/O - e suficient ca SO sa nu
+ permita includerea portiunii de spatiu de adrese ce contine registrii de
+ control in spatiul virtual de adrese ale vreunui utilizator;
+  mai mult, daca fiecare echipament are registrii de control in pagini
+ diferite ale spatiului de adrese, SO poate permite unui utilizator sa
+ controleze anumite echipamente, incluzand paginile respective in tabela lui
+ de pagini; in felul acesta, drivere diferite pot fi plasate in spatii de
+ adrese diferite, reducandu-se dimensiunea nucleului si facand totodata ca
+ driverele sa nu intefere intre ele;
+  nota personala: si in cazul (a) este posibila impiedicarea proceselor
+ utilizator sa execute instructiuni de I/O, daca le facem privilegiate (a.i.
+ sa nu se poata executa decat in kernel mode);
+- aceleasi instructiuni care pot referi memoria pot referi si registrii de
+ control; de ex. daca exista o instructiune "TEST" care testeaza daca un
+ cuvant de memorie este 0, ea poate testa si daca un registru de control
+ este 0 (i.e. echipamentul este nefolosit si poate accepta o noua comanda);
+ codul in assembler ar putea arata astfel:
+
+  LOOP:  TEST PORT_4   // verifica daca portul 4 este liber
+         BEQ READY     // daca este 0, salt la eticheta READY
+         BRANCH LOOP   // altfel salt la LOOP (continua sa testezi)
+  READY:
+
+ in cazul (a) trebuie o instructiune in plus, care sa citeasca registrul de
+ control intr-un registru al procesorului (si apoi sa fie testat), deci
+ detectarea unui echipament nefolosit se va face mai lent.
+
+ Dezavantajele sistemului I/O cu corespondenta in memorie:
+- calculatoarele moderne au posibilitatea pastrarii intr-o memorie
+ intermediare (cache) a unor cuvinte din memorie; daca am pastra in cache
+ valoarea unui regsitru de control, atunci in codul assembler de mai sus
+ prima referire la PORT_4 va face ca contiuntul lui sa fie pus in cache,
+ iar urmatoarele referiri vor lua valoarea din cache fara a consulta
+ echipamentul (deci, cand echipamentul va fi la un moment dat pregatit,
+ softul nu va afla ci va cicla la infinit); de aceea, in cazul (b)
+ hardware-ul trebuie sa poata opri selectiv pastrarea in cache, de ex. pe
+ baza paginilor de memorie (a se vedea cursul despre gestiunea memoriei);
+ acest lucru adauga insa complexitate suplimentara atat la hardware cat si
+ la SO, care va trebui sa gestioneze pastrarea selectiva in cache;
+- daca exista un singur spatiu de adrese, toate modulele de memorie si toate
+ echipamentele de I/O trebuie sa examineze toate referintele la memorie
+ pentru a vedea care din ele trebuie sa raspunda;
+  daca masina are o singura magistrala, acest lucru e simplu; daca are mai
+ multe - de ex. o magistrala dedicata memoriei, care este mai rapida si nu
+ face compromisuri de dragul echipamentelor I/O lente - atunci echipamentele
+ de I/O nu vad adresele ce trec prin magistrala memoriei, deci nu pot
+ raspunde; solutii:
+  * referintele la memorie se transmit intai memoriei, apoi pe celelalte
+   magistrale, pana cand cineva raspunde; este insa necesara o complexitate
+   hardware suplimentara;
+  * se plaseaza pe magistrala memoriei un echipament de supraveghere ce
+   transmite adresele catre echipamentele de I/O potential interesate;
+   atunci insa s-ar putea ca echipamentele sa nu poata procesa cererile cu
+   viteza cu care poate face acest lucru memoria;
+  * solutia folosita de Pentium, care are o magistrala locala, din care
+   se ramifica 3 magistrale externe: memorie, PCI, ISA:
+    pe magistrala locala exista un chip punte PCI (PCI bridge) la
+   ramificatia catre magistrala PCI; chipul are niste registri de domeniu
+   (range registers), preincarcati la pornirea sistemului (boot-are), prin
+   care marcheaza anumite domenii de adrese (de ex. 640K - 1M) ca
+   neapartinand memoriei; chipul filtreaza adresele venite pe magistrala
+   locala, iar adresele din domeniile marcate sunt transmise magistralei
+   PCI, nu memoriei;
+    de asemenea, pe magistrala PCI exista un chip punte la ramificarea catre
+   magistrala ISA (si mai lenta);
+    dezavantajul este necesitatea de a descoperi la boot-are care sunt
+   intervalele de adrese.
+
+
+Arhitectura cu o magistrala:      Arhitectura cu doua magistrale:
+
+-----  ---------  -----           -----  Magistrala rapida  ---------  -----
+|CPU|  |Memorie|  |I/O|           |CPU|---------------------|Memorie|  |I/O|
+-----  ---------  -----           -----                     ---------  -----
+  |        |        |               |                           |        |
+  --------------------              ---------------------------------------
+           Magistrala                    Magistrala I/O         ^
+                                                                |
+                                                     port memorie ce permite
+                                                     dispozitivelor de I/O sa
+                                                     acceseze memoria
+
+Arhitectura Pentium:
+
+--------  Cache  -----  Local  --------  Memory  --------
+|Level2|   bus   |   |   bus   |  PCI |    bus   |Main  |
+| cache|<------->|CPU|<------->|bridge|<-------->|memory|
+--------         -----         --------          --------          Available
+                                   ^                               PCI slot
+                                   |        PCI bus                   --
+   <------------------------------------------------------------------||-->
+             |          |          |                    |             --
+             V          V          V                    V   
+           ------     -----     --------    ------   -----------
+           |SCSI|     |USB|     |ISA   |    |IDE |   | Graphics|   ---------
+           ------     -----     |bridge|<-->|disk|   | adaptor |-->|Monitor|
+             ^          ^       --------    ------   -----------   ---------
+             |          |          ^
+          <----->    <----->       |
+                                   |        ISA bus                   --
+   <------------------------------------------------------------------||-->
+             |          |                             |               --
+             V          V                             V          Available
+           -------    ------------               ---------       ISA slot
+           |Modem|    |Sound card|               |Printer|
+           -------    ------------               ---------
+
+
+Accesul direct la memorie (DMA - Direct Memory Acces):
+------------------------------------------------------   
+
+ Comunicarea dintre procesor si controloare se poate face octet cu octet,
+dar astfel se risipeste timp procesor. De aceea, deseori se foloseste un
+mecanism numit DMA (Direct Memory Acces - acces direct la memorie).
+ SO poate folosi DMA doar daca hardware-ul are un controlor DMA (majoritatea
+calculatoarelor au); poate exista cate un controlor DMA integrat in
+controloarele altor echipamente, sau (de cele mai multe ori) un singur
+controlor (de ex. pe placa de baza) folosit de mai multe echipamente (uneori
+in mod concurent).
+
+ Controlorul DMA are acces la magistrala sistemului independent de procesor
+si contine cativa registri ce pot fi cititi/scrisi de procesor: un registru
+de adrese ale memoriei, un registru contor, cativa registri de control.
+ Registrii de control specifica portul de I/O ce trebuie folosit, directia
+transferului, unitatea de transfer (octet sau cuvant), numarul de octeti
+transferati la o rafala.
+
+ Exemplu de functionare a DMA, legat de citirile de disc:
+- daca nu este folosit DMA:
+  controlorul citeste blocul (unul sau mai multe sectoare) de pe disc in
+ mod serial, bit cu bit, pana cand tot blocul este in memoria interna a
+ controlorului, apoi calculeaza suma de control si daca nu sunt erori
+ controlorul genereaza o intrerupere; atunci SO copiaza blocul, executand un
+ ciclu in care la fiecare iteratie copiaza cate un octet sau cuvant dintr-un
+ registru al controlorului in memoria principala;
+- daca este folosit DMA:
+  1) procesorul programeaza controlorul DMA setand registrii acestuia si
+ comanda controlorul discului sa citeasca datele de pe disc in memoria sa
+ interna si sa verifice suma de control; dupa ce datele sunt citite si
+ verificate, DMA executa repetat, de atatea ori cat arata registrul sau
+ contor (el este decremenat succesiv pana ajunge 0), pasii 2 - 4:
+  2) emite prin mgistrala o cerere de citire catre controlorul de disc (e o
+   cerere obisnuita, controlorul de disc nu stie daca a venit de la procesor
+   sau DMA); adresa de memorie a destinatiei este si ea pe magistrala;
+  3) se transfera prin magistrala un cuvant de la controlorul de disc la
+   memorie (este un ciclu standard de magistrala);
+  4) cand scrierea in memorie este terminata, controlorul de disc trimite
+   prin magistrala un semnal de confirmare catre DMA;
+ cand a terminat iteratiile (contorul a ajuns la 0), DMA genereaza o
+ intrerupere procesor, iar SO isi reia rularea (blocul citit insa este deja
+ in memorie). 
+                                               -----
+                                               |   | Disc
+                                               -----
+                                                 |
+                                       Controlor |        Memoria
+ Procesor          Controlor DMA       disc      |        principala
+ --------          --------------      -------------      ------------
+ |      |    (1)   |  --------  |  (4) |   Buffer  |      |          |
+ |    --------------->|Adresa| <--------- -------- |      |          |
+ |      |          |  --------  |      |  |      | |      |          |
+ |      |          |  --------  |      |  |      | |      |          |
+ |      |          |  |Contor|  |      |  |      | |      |          |
+ |      |          |  --------  |      |  |      | |      |          |
+ |      |          |  --------- |      |  -------- |      |          |
+ |      |          |  |Control| |      |       |   |      |          |
+ |      |          |  --------- |      |       |   |      |          |
+ |      |          |            |      |       |   |      |          |
+ |   ^  |          |   |     |  |      |  ^    |   |      |  ^       |
+ ----|---          ----|-----|---      ---|----|----      ---|--------
+    ||                 |  |  |            | |  |             |  |
+    ||intrerupere cand |  |  |            | |  |             |  |
+    ||s-a finalizat    |  |  |     (2)    | |  |      (3)    |  |
+    |-------------------  |  -------------- |  ---------------  |
+    ------------------------------------------------------------- Magistrala
+
+
+ Controloarele DMA pot fi foarte diverse: unele efectueaza un singur
+transfer la un moment dat (ca in exemplul de mai sus), altele mai multe
+transferuri simultan, de la controloare de echipament diferite (au cate
+un set de registri interni si o linie de confirmare pentru fiecare canal),
+iar DMA decide ce echipament va fi deservit urmatorul, dupa un algoritm
+round-robin sau o schema de prioritati.
+
+ Magistralele si controloarele DMA pot funtiona in modul cuvant sau bloc.
+ In primul caz DMA cere si transfera cate un cuvant; daca procesorul vrea
+magistrala, trebuie sa astepte; mecanismul s.n. FURT DE CICLU (CYCLE
+STEALING) deoarece controlorul echipamentului 'fura' din cand in cand cate
+un ciclu de magistrala de la procesor (intarziindu-l putin).
+ In al doilea caz, controlorul DMA cere echipamentului sa obtina magistrala,
+sa efectueza o serie de transferuri, apoi sa o elibereze; aceasta forma de
+operare s.n. RAFALA (BURST MODE); este mai eficienta decat furtul de ciclu,
+deoarece obtinerea magistralei ia timp iar acum mai multe cuvinte se pot
+transfera cu petul unei singure obtineri; dezavantajul este ca procesorul
+sau alte dispozitive pot fi blocate pentru o perioada mai lunga, daca
+rafala este lunga.
+
+ In modelul discutat mai sus, numit si CU OCOLIRE (FLY-BY MODE), controlorul
+DMA spune controlorului echipamentului sa transfere date direct in memoria
+principala, ocolindu-l.
+ Alternativ, controloarele DMA pot primi ele cuvantul de la controlorul
+echipamentului si apoi emit o a doua cerere de magistrala, pentru a-l scrie
+in memorie; aceasta schema necesita un ciclu de magistrala suplimentar, dar
+este mai flexibila, deoarece se poate copia de la echipament la echipament
+si chiar de la memorie la memorie.
+
+ Majoritatea controloarelor DMA folosesc adrese fizice de memorie pentru
+transferuri; atunci SO trebuie sa transforme adresa virtuala a memoriei
+avute in vedere in adresa fizica si sa o incarce in registrul de adrese al
+controlorului DMA. Unele controloare DMA permit insa scrierea adresei
+virtuale in controlorul DMA si atunci folosesc MMU (Memory Management Unit -
+a se vedea cursul despre gestiunea memoriei) pentru translatarea ei in
+adresa fizica. Daca in plus MMU este parte a memoriei, nu a procesorului
+(posibil, dar rar), adresele virtuale pot fi puse direct pe magistrala.
+
+ Am spus mai devreme ca discul citeste mai intai datele in memoria sa
+tampon, inainte ca DMA sa inceapa transferul. Un motiv este ca astfel se
+poate verifica suma de control inainte de transfer (in caz de eroare
+transferul nu mai are loc). Alt motiv este ca bitii vin de pe disc cu viteza
+constanta indiferent daca magistrala este pregatita sa-i preia sau este
+ocupata cu alte echipamente (ex. in burst mode); prin acumularea blocului
+intr-un tampon intern, magistrala nu este necesara pana ce incepe DMA, iar
+acesta poate planifica transferul cum vrea - transferul DMA catre memorie nu
+mai este critic d.p.v. timpului.
+ Nu toate calculatoarele folosesc DMA, deoarece procesorul este de multe ori
+mai rapid decat controlorul DMA si poate rezolva sarcina mai repede, pe
+cale software (daca factorul de limitare nu este viteza echipamentelor de
+I/O) - atunci nu are rost ca un procesor rapid sa astepte ca un controlor
+DMA lent sa termine.
+
+Intreruperi:
+------------
+
+ La nivel hardware, intreruperile functioneaza astfel:
+1) cand un echipament de I/O a terminat activitatea comandata, genereaza o
+ intrerupere (presupunand ca intreruperile au fost activate de SO) trimitand
+ un semnal pe o linie a magistralei repartizata lui;
+  semnalul este interceptat de chip-ul controlerului de intreruperi
+ (aflat pe placa de baza); daca nu exista o alta intrerupere in asteptare,
+ controlerul prelucreaza intreruperea imediat; daca exista alta intrerupere
+ in curs de prelucrare, sau daca alt echipament a facut o cerere simultana
+ pe o linie a magistralei mai prioritara, echipamentul este deocamdata
+ ignorat, iar el va continua sa trimita semnal pe magistrala pana va fi
+ deservit;
+2) pentru tratarea intreruperii, controlerul pune pe liniile de adresa un
+ numar asociat echipamentului respectiv si emite un semnal care intrerupe
+ procesorul din activitatea pe care o desfasura;
+  procesorul foloseste numarul trimis pe liniile de adresa ca index intr-o
+ tabela numita VECTOR DE INTRERUPERI (INTERRUPT VECTOR), incarcand valoarea
+ de acolo in registrul contor de program; aceasta valoare este adresa
+ rutinei de tratare a intreruperii respective;
+  inainte de a lansa rutina, hardware-ul salveaza (de ex. pe stiva curenta)
+ anumite informatii (de ex. contorul de program si alti registri), pentru ca
+ apoi sa-si poata relua activitatea de unde a ramas; natura informatiilor si
+ locul unde sunt salvate depinde de procesor;
+  in general, TRAP-urile si intreruperile folosesc acelasi mecanism de aici
+ incolo si de regula acelasi vector de intreruperi; locatia vectorului de
+ intreruperi poate fi codificata in hardware sau aflata in memorie iar un
+ registru retine adresa sa;
+3) la scurt timp dupa lansare, rutina de tratare a intreruperii confirma
+ intreruperea scriind o valoare la unul din porturile de I/O ale
+ controlerului de intreruperi; aceasta valoare anunta controlerul ca este
+ liber sa emita o alta intrerupere; conditiile de cursa care implica 
+ intreruperi aproape simultane sunt evitate prin faptul ca procesorul
+ intarzie confirmarea pana cand este gata sa prelucreze o alta intrerupere.
+
+                   Controlor
+ Procesor          de intreruperi
+ --------          --------------    (1)   --------
+ |      |    (3)   |  --------  |<---------|      | Disc
+ |    --------------->|      |  |          --------
+ |      |          |  --------  |          --------
+ |      |          |  --------  |<---------|      | Tastatura
+ |      |          |  |      |  |          --------
+ |      |          |  --------  |          --------
+ |      |          |  --------  |<---------|      | Ceas
+ |      |          |  |      |  |          --------
+ |      |          |  --------  |          --------
+ |      |          |            |<---------|      | Imprimanta
+ |   ^  |          |   |        |          --------
+ ----|---          ----|--------- 
+    ||       (2)       |  |
+    |-------------------  |
+    --------------------------------------- Magistrala
+
+ Legat de salvarea anumitor informatii inainte de lansarea rutinei de
+tratare a intreruperii apar mai multe dificultati:
+- daca informatia este salvata in anumiti registri (pe care SO ii poate citi
+ la nevoie), controlerul de intreruperi nu poate primi confirmarea decat
+ dupa ce informatiile relevante au fost citite (altfel, o noua intrerupere
+ suprascrie registrii pierzandu-se informatia respectiva); astfel apar timpi
+ morti lungi in care intreruperile sunt dezactivate iar unele intreruperi si
+ date pot fi pierdute;
+- daca informatia este salvata pe stiva (majoritatea procesoarelor fac asa),
+ se pune problema pe care stiva ?
+ * daca este stiva curenta, ar putea fi stiva unui proces utilizator; atunci
+  pointerul de stiva ar putea avea valori ilegale, rezultand erori fatale la
+  scriere, sau ar putea indica spre sfarsitul unei pagini, a.i. scrierea ar
+  putea depasi limita paginii generand un defect de pagina si deci un TRAP,
+  care ar necesita si el salvarea unor informatii, etc;
+ * daca este stiva nucleului, pointerul de stiva are in principiu o valoare
+  legala si pointeaza o pagina fixata, dar comutarea in mod nucleu implica
+  schimbari de context MMU si invalidarea celei mai mari parti a memoriei
+  cache si TLB, reincarcarea lor crescand durata procesarii intreruperii;
+- pe masinile vechi, dupa fiecare instructiune hardware-ul (sau
+ microprogramul) verifica daca exista o intrerupere in asteptare si daca da,
+ se salva pe stiva contorul de program si registrul de stare (PSW) si se
+ incepea tratarea intreruperii; contorul de program era suficient pentru a
+ sti de unde sa se reia activitatea la revenire, deoarece instructiunile
+ anterioare intreruperii erau executate complet, iar cele de dupa
+ intrerupere deloc;
+  majoritatea procesoarelor moderne folosesc insa pipeline-uri (benzi de
+ asamblare) si paralelismul intern (masini superscalare); atunci, la un
+ moment dat, mai multe instructiuni pot fi incepute si inca neterminate;
+ de aceea contorul de program (care poate indica de ex. adresa urmatoarei
+ instructiuni ce trebuie adusa in pipeline) nu mai este suficient pentru a
+ sti de unde sa se reia activitatea, deoarece pot exista instructiuni
+ anterioare neterminate.
+
+ O intrerupere care lasa masina intr-o stare bine definita s.n. INTRERUPERE
+PRECISA (PRECISE INTERRUPT); ea are patru proprietati:
+1. contorul de program (PC) este salvat intr-un loc cunoscut;
+2. toate instructiunile anterioare celei indicate de PC au fost executate
+ complet;
+3. nici o instructiune de dupa cea indicata de CP nu a fost executata (dar
+ ar putea fi inceputa - trebuie insa ca modificarile facute de ea asupra
+ registrilor si memoriei sa fie anulate inainte ca intreruperea sa inceapa);
+4. starea de executie a instructiunii indicate de PC este cunoscuta (nu
+ este vreo restrictie ca ea sa fi fost sau nu executata, dar trebuie
+ specificat clar ce caz se aplica; de obicei, in cazul unei intreruperi de
+ I/O instructiunea indicata de PC nu a fost inca inceputa, iar in cazul unui
+ defect de pagina PC indica instructiunea care a cauzat defectul, a.i. sa
+ poata fi restartata mai tarziu).
+
+ O intrerupere ce nu intruneste conditiile de mai sus s.n. IMPRECISA
+(IMPRECISE INTERRUPT). Ea impune existenta unui SO mai complicat, care
+trebuie sa-si dea seama ce s-a intamplat sau inca trebuie sa se intample.
+De multe ori masinile cu intreruperi imprecise salveaza pe stiva mai multe
+informatii referitoare la starea lor(pentru a permite SO sa cunoasca aceasta
+stare),ceea ce creste durata intrarii si revenirii din intrerupere - astfel,
+desi procesorul este rapid, el poate fi nepotrivit pentru lucru in timp real
+din cauza intreruperilor lente.
+
+ Unele masini au anumite intreruperi precise, de ex. cele de I/O, altele nu,
+de ex. TRAP-urile cauzate de erori fatale de program (nu este o abordare
+gresita, deoarece in al doilea caz nu mai trebuie repornit procesul curent).
+ Unele masini au un bit setabil a.i. toate intreruperile sa fie fortat
+precise - atunci procesorul este fortat sa retina tot timpul ceea ce face si
+sa mentina copii shadow ale registrilor, pentru a putea genera intreruperi
+precise in orice moment, fapt ce afecteaza puternic performanta.
+
+ Unele masini superscalare, ex. Pentium Pro, au intreruperi precise pentru
+a permite rularea corecta a programelor facute pentru mai vechile 386, 486,
+Pentium I; pretul platit este o logica complexa a intreruperilor in procesor
+(pentru a asigura ca la venirea unui semnal de intrerupere de la controlerul
+de intreruperi toate instructiunile pana la un punct au voie sa se termine,
+iar cele urmatoare nu au voie sa aibe vreun efect notabil asupra starii
+masinii) si o suprafata mai mare din chip dedicata in acest scop (care
+altfel ar fi fost folosita de ex. pentru un cache mai mare, facand
+procesorul mai rapid).
+
+ Pe de alta parte intreruperile imprecise fac SO mai complicat si mai lent,
+deci e greu de spus ce abordare este mai buna.
+
+2. Principiile software-ului de I/O:
+------------------------------------
+
+Scopurile software-ului de I/O:
+-------------------------------
+
+- INDEPENDENTA DE ECHIPAMENT (DEVICE INDEPENDENCE): trebuie sa fie posibila
+ scrierea unor programe ce pot accesa orice echipament de I/O, fara a se
+ preciza dinainte echipamentul;
+  de ex. un program care citeste dintr-un fisier trebuie sa poata citi
+ indiferent daca fisierul este pe hard disk, discheta, CD-ROM, etc. (cu o
+ aceeasi comanda sa poata citi in toate cazurile - SO se va ocupa de
+ detaliile specifice diverselor echipamente);
+
+- DENUMIREA UNIFORMA (UNIFORM NAMING): este legata de independenta de
+ echipament si presupune de ex. ca numele unui fisier sau echipament sa
+ fie construit intr-un acelasi mod (ex: sir de caractere sau numar),
+ nedepinzand de dispozitiv;
+  de ex. in UNIX/LINUX un disc, discheta, CD-ROM, etc. poate fi integrat (cu
+ comanda "mount") ca un director oarecare in ierarhia sistemului de fisiere,
+ a.i. utilizatorul sa nu trebuiasca sa stie carui echipament ii corespunde
+ fiecare nume; toate fisierele sunt adresate la fel, prin pathname (cale si
+ nume), indiferent unde se afla;
+
+- TRATAREA ERORILOR (ERROR HANDLING) ar trebui sa se faca la nivelul cel mai
+ jos posibil (cat mai aproape de hardware), transparent (fara ca nivelurile
+ superioare sa afle ca a fost o eroare);
+  de ex. daca controlerul de disc descopera o eroare la citire, trebuie sa
+ incerce s-o corecteze singur; daca nu poate, trebuie sa anunte driver-ul
+ discului pentru a o corecta el, de ex. repetand citirea (unele erori sunt
+ trecatoare, de ex. cele provocate de un fir de praf pe capul de citire, si
+ dispar daca se repeta operatia); daca driver-ul nu poate, el va anunta
+ nivelurile superioare;
+
+- alegerea intre transferul SINCRON (SYNCHRONOUS) (blocant) si cel asincron
+ (ASYNCHRONOUS) (condus de intreruperi);
+  majoritatea echipamentelor de I/O sunt asincrone: procesorul porneste
+ transferul, apoi face altceva pana soseste intreruperea ce anunta
+ incheierea lui;
+  programele utilizator sunt insa mai usor de scris daca operatiile de I/O
+ sunt blocante (ex: in urma unui apel sistem de citire procesul este adormit
+ pana cand datele sunt disponibile in buffer); este sarcina SO sa faca
+ operatiile ce sunt de fapt conduse de intreruperi sa para blocante pentru
+ programele utilizator;
+
+- UTILIZAREA MEMORIEI TAMPON (BUFFERING): de multe ori datele ce provin de
+ la un echipament nu pot fi memorate direct in locatia finala si atunci ele
+ trebuie acumulate intr-o memorie tampon (buffer);
+  de ex. cand un pachet de date vine din retea, SO nu stie unde sa-l puna
+ pana nu il memoreaza undeva si-l examineaza;
+  de asemenea, in cazul echipamentelor constranse de executia in timp real
+ (de ex. cele audio/video) datele trebuie acumulate intr-un buffer de iesire
+ in avans, pentru a desparti viteza cu care se umple bufferul de cea cu care
+ el se goleste, evitandu-se golirea sa completa (buffer underrun);
+  utilizarea memoriei tampon implica multe copieri, ceea ce diminueaza
+ performantele I/O;
+
+- alegerea intre echipamente PARTAJABILE si echipamente DEDICATE;
+  unele echipamente pot fi partajate (ex: mai multi utilizatori pot avea
+ fisiere deschise pe un acelasi disc in acelasi timp), altele nu (ex: pe o
+ banda magnetica nu pot scrie doi utilizatori blocuri aleatoare simultan ci
+ ea trebuie dedicata fiecarui utilizator pe rand pana isi termina treaba);
+  folosirea echipamentelor dedicate (nepartajabile) ridica alte probleme,
+ cum ar fi deadlock-urile;
+  SO trebuie sa poate gestiona ambele tipuri de echipamente intr-un mod
+ care evita problemele.
+
+Modalitati de realizare a I/O d.p.v al SO:
+------------------------------------------
+
+ Sunt trei modalitati fundamentale de realizare a operatiilor de I/O, pe
+care le vom ilustra in cazul tiparirii unui sir de caractere la imprimanta.
+ Presupunem ca imprimanta are un registru in care se scrie caracterul ce
+trebuie tiparit si un registru de stare din a carui consultare putem deduce
+de ex. daca imprimanta este pregatita sa primeasca caracterul urmator (deci
+a terminat de tiparit caracterul precedent); presupunem ca se folosesc I/O
+cu corespondenta in memorie, deci registrii imprimantei corespund unor
+adrese de memorie:
+
+- I/O PROGRAMATE (PROGRAMMED I/O):
+
+ Pasii efectuati sunt:
+ * procesul utilizator construieste sirul in spatiul utilizator;
+ * procesul achizitioneaza imprimanta, printr-un apel sistem de "deschidere"
+  (daca imprimanta este achizitionata de alt proces, atunci in functie de SO
+  si de parametrii apelului sistem, apelul poate bloca procesul pana cand
+  imprimanta devine disponibila sau poate returna un cod de eroare iar
+  procesul va repeta eventual tentativa de achizitionare mai tarziu);
+ * dupa achizitionarea imprimantei, procesul face un apel sistem de
+  "scriere" prin care cere SO sa tipareasca sirul la imprimanta;
+ * SO (de obicei) copiaza sirul in spatiul nucleu, unde e mai usor de
+  accesat (deoarece nucleul ar trebui sa schimbe harta memoriei pentru a
+  ajunge in spatiul utilizator);
+ * intr-o bucla, pentru fiecare caracter din sir, SO verifica daca
+  imprimanta este pregatita (consultand registrul ei de stare), apoi copiaza
+  caracterul in registrul sau de date(aceasta copiere activeaza imprimanta);
+ * in final se reda controlul procesului utilizator;
+ Acesti pasi sunt rezumati mai jos:
+
+ copy_from_user(buffer,p,count);        /* p este tamponul din nucleu */
+ for(i=0;i<count;++i){                  /* bucla pentru fiecare caracter */
+   while(*printer_status_reg != READY); /* bucla pana cand este pregatita */
+   *printer_data_register = p[i];       /* trimite un caracter la iesire */
+ }
+ return_to_user();
+
+ Aspectul esential al I/O programate este ca dupa trimiterea unui caracter
+catre echipament, procesorul testeaza in continuu echipamentul pentru a
+vedea daca este pregatit sa primeasca urmatorul caracter (comportament numit
+INTEROGARE (POLLING) sau ASTEPTARE OCUPATA (BUSY WAITING)), fara a face
+altceva intre timp.
+
+ Operatiile de I/O programate sunt simple, dar au dezavantajul ca ocupa tot
+timpul procesorului pana cand operatia este terminata.
+ Daca durata operatiei este foarte mica mica (in cazul nostru, durata
+printarii unui caracter) sau daca procesorul nu are altceva de facut intre
+timp (de ex. in sistemele incorporate (embedded)), metoda este acceptabila.
+ In sistemele mai complexe, unde procesorul are multe sarcini, metoda nu
+este eficienta.
+
+- I/O CONDUSE PRIN INTRERUPERI (INTERRUPT-DRIVEN I/O):
+
+ In exemplul nostru, daca tiparirea unui caracter dureaza 10 ms, este timp
+suficient pentru a face o schimbare de context si a rula alt proces timp de
+10 ms, decat sa se astepte in bucla ca imprimanta sa redevina pregatita.
+
+ Pasii difera de cei de mai sus prin urmatoarele:
+* dupa scrierea fiecarui caracter in registrul de date al imprimantei este
+ apelat planificatorul de procese (in loc sa se intre in asteptare ocupata);
+  acesta blocheaza (adoarme) procesul curent si da controlul altui proces;
+* cand imprimanta redevine pregatita dupa tiparirea unui caracter, genereaza
+ o intrerupere;
+  rutina de tratare a intreruperii fie preia spre tiparire urmatorul
+ caracter, fie (daca nu mai sunt caractere) ia masuri pentru deblocarea
+ procesului care a comandat tiparirea (el trece in starea "ready" si la
+ urmatoarea planificare poate fi ales sa ruleze);
+  notam ca in momentul generarii intreruperii un proces oarecare era in
+ executie; intreruperea salveaza starea lui (ex. pe stiva), iar rutina de
+ tratarea a intreruperii revine la sfarsit in acest proces, care e continuat
+ (nu comuta automat pe procesul care a comandat tiparirea - aceasta este o
+ alegere care va fi facuta mai tarziu de panificator).
+Pasii sunt rezumati mai jos:
+
+/* cod executat la efectruarea             /* rutina de tratare a
+ apelului sistem de printare */             intreruperii */
+
+ copy_from_user(buffer,p,count);           if(count == 0)
+ enable_interrupts();                         unblock_user();
+ while(*printer_status_reg != READY);      else{
+ *printer_data_register = p[0];               *printer_data_register = p[i];
+ scheduler();                                 count = count - 1; 
+                                              i = i + 1;
+                                           }
+                                           acknowledge_interrupt();
+                                           return_from_interrupt();
+- I/O FOLOSIND DMA:
+
+ Un dezavantaj al I/O conduse prin intreruperi este ca intreruperea apare
+des (la fiecare caracter trimis), iar intreruperile consuma timp procesor.
+ O solutie este folosirea DMA: controlorul DMA este programat, apoi el
+trimite imprimantei caractere, cate unul odata, fara a mai deranja
+procesorul; cand va termina de trimis tot sirul, controlorul DMA va informa
+procesorul generand o intrerupere.
+ Pasii sunt rezumati mai jos:
+
+/* cod executat la efectruarea             /* rutina de tratare a
+ apelului sistem de printare */             intreruperii */
+
+ copy_from_user(buffer,p,count);           acknowledge_interrupt();
+ set_up_DMA_controller();                  unblock_user();
+ scheduler();                              return_from_interrupt();
+
+ Avantajul acestei metode este ca numarul de intreruperi se reduce de la una
+per caracter la una per tampon tiparit; daca numarul de caractere este mare
+iar intreruperile sunt lente, aceasta este o imbunatatire majora.
+ In general insa controlorul DMA este mult mai lent decat procesorul; daca
+controlorul DMA nu are capacitatea de a folosi echipamentul la viteza lui
+maxima sau daca procesorul nu are altceva de facut pana vine intreruperea
+de la DMA, atunci I/O programate sau I/O conduse prin intreruperi pot fi mai
+avantajoase.
+
+3. Nivelurile software-ului de I/O:
+-----------------------------------
+
+ Software-ul de I/O este de obicei organizat pe patru NIVELURI (LAYERS),
+fiecare avand o functie proprie si o interfata cu nivelurile adiacente
+(functia si interfetele depind de sistem):
+
+                --------------------------------------------
+                |      Software I/O de nivel utilizator    |
+                --------------------------------------------
+                | Software al SO independent de echipament |
+                --------------------------------------------
+                |          Drivere de echipament           |
+                --------------------------------------------
+                |   Rutinele de tratare a intreruperilor   |
+        ------------------------------------------------------------
+        |                       Hardware                           |
+        ------------------------------------------------------------
+
+Rutinele de tratare a intreruperilor (interrupt handlers):
+----------------------------------------------------------
+
+ Intreruperile ar trebui ascunse a.i. o parte cat mai mica a SO sa stie de
+existenta lor.
+ O cale de a realiza aceasta este ca driverul care porneste o operatie de
+I/O sa se blocheze pana cand operatia este terminata si apare intreruperea;
+driverele se pot bloca la un semafor, la o variabila conditie a unui
+monitor, la asteptarea unui mesaj, etc.; cand apare intreruperea, rutine de
+tratare a intreruperii isi efectueaza sarcina specifica, apoi deblocheaza
+driverul (incrementand semaforul, resp. efectuand o operatie "signal" asupra
+variabilei conditie, resp. trimitand un mesaj driverului blocat). Acest
+model functioneaza bine cand driverele sunt structurate ca procese nucleu,
+cu propriile lor stari, stive si contoare de program.
+
+ Dupa generarea unei intreruperi, trebuie efectuati in software urmatorii
+pasi (numarul, continutul si ordinea lor sunt dependente de sistem/masina):
+1. Salvarea registrilor (inclusiv PSW) ce nu au fost inca salvati de
+  partea hardware a intreruperii;
+2. Initializarea unui context pentru serviciul (procedura) de tratare a
+ intreruperii (aceasta poate include initializarea MMU, TLB si a unei tabele
+ de pagini);
+3. Initializarea unei stive pentru serviciul (procedura) de tratare a
+ intreruperii;
+4. Confirmarea controlorului de intreruperi; daca nu exista un controlor
+ de intreruperi centralizat, reactiveaza intreruperile;
+5. Copierea registrilor de unde au fost salvati (ex. o stiva) in tabela de
+ procese;
+6. Ruleaza serviciul (procedura) de tratare a intreruperii; aceasta va
+ obtine informatii din registrii controlorului echipamentului care a
+ provocat intreruperea;
+7. Alege ce proces va rula in continuare (planificare); daca intreruperea a
+ facut ca un proces prioritar care era blocat sa devina ready, el poate fi
+ cel ales;
+8. Initializeaza MMU si eventual TLB pentru noul proces;
+9. Incarca registrii pentru noul proces (inclusiv PSW);
+10. (Re)porneste executia noului proces.
+
+ Procesarea intreruperilor necesita multe instructiuni procesor, mai ales pe
+masinile cu memorie virtuala si la care trebuie initializate tabelele de
+pagini si salvata starea MMU (de ex. bitii R si M); la unele masini
+memoriile intermediare (cache) ale TLB-ului si procesorului trebuie de
+asemenea gestionate la comutarea intre user mode si kernel mode, ceea ce
+consuma cicluri masina suplimentare.
+
+Drivere de echipament (device drivers):
+---------------------------------------
+
+ Am vazut ca fiecare controlor de echipament are registri proprii in care se
+pot citi/scrie informatii. Numarul si natura informatiilor difera mult de la
+un echipament la altul. De aceea, fiecare echipament de I/O atasat masinii
+trebuie controlat de un program specific, numit DRIVER DE ECHIPAMENT (DEVICE
+DRIVER); in general el este scris si livrat de producatorul echipamentului;
+cum fiecare SO necesita propriile lui drivere, producatorii echipamentelor
+furnizeaza drivere pentru mai multe SO populare.
+
+ Fiecare driver de echipament controleaza un signur tip de echipament sau o
+clasa de echipamente asemanatoare - de ex. un driver de disc SCSI poate
+controla mai multe discuri SCSI de diverse marimi si viteze si probabil un
+CD-ROM SCSI; dar mouse-ul si joystick-ul sunt prea diferite si astfel
+necesita drivere separate. D.p.v. tehnic este posibila scrierea de drivere
+care sa controleze mai multe echipamente de tipuri diferite, dar nu e
+recomandat.
+
+ Pentru a putea accesa echipamentul (registrii controlorului), in mod normal
+driverul trebuie sa faca parte din SO, cel putin pe arhitecturile actuale.
+ Se pot construi insa si drivere care ruleaza in spatiul utilizator si
+folosesc apeluri sistem pentru a accesa registrii controlorului; aceasta
+metoda are avantajul de a izola nucleul de drivere si driverele intre ele,
+eliminand o sursa de caderi ale sistemului cauzate de erorile de programare
+din drivere (care interactioneaza cu nucleul).
+
+ SO actuale sunt concepute a.i. driverele sa ruleze in nucleu si astfel au
+o structura care permite instalari de drivere in SO. In acest scop SO au
+un model bine definit asupra a ceea ce face driverul si cum interactioneaza
+el cu restul SO, mai exact driverele sunt catalogate intr-un numar mic de
+categorii si se ofera cate o interfata standard pentru fiecare categorie;
+de obicei categoriile sunt ECHIPAMENTE BLOC (BLOCK DEVICES), ex. discuri,
+care contin mai multe blocuri de date ce pot fi adresate separat, si
+ECHIPAMENTE CARACTER (CHARACTER DEVICES), ex. tastaturile si imprimantele,
+care genereaza/accepta un flux de caractere.
+ Interfetele standard pentru diversele categorii de echipament consta
+dintr-un numar de proceduri pe care restul SO le poate apela pentru a folosi
+driverul, tipice fiind procedurile de citire/scriere a unui bloc, resp. sir.
+
+ La unele SO, intregul sistem era un singur program binar care continea in
+el toate driverele compilate; instalarea unui driver nou presupunea
+recompilarea intregului SO; asa se intampla la primele versiuni de UNIX,
+care rulau in centre de calcul, unde echipamentele de I/O se schimbau rar.
+ Odata cu aparitia calculatoarelor personale si marea diversificare a
+echipamentelor de I/O, acest model nu a mai fost adecvat: nu toti
+utilizatorii stiau sa recompileza SO, codul sursa al SO nu era mereu
+disponibil, etc. Atunci SO, incepand cu MS-DOS, s-au orientat spre un model
+in care driverele sunt incarcate dinamic, in timpul executiei.
+
+ Un driver de echipament are mai multe functii, de exemplu:
+- acceptarea unor cereri abstracte de citire/scriere de la partea soft
+ independenta de echipament si de a le indeplini;
+- initializarea echipamentului;
+- administrarea cererii de energie;
+- inregistrarea evenimentelor.
+
+ Multe drivere au o structura asemenatoare, un driver efectuand urmatoarele:
+- verifica daca parametrii de intrare sunt valizi; daca nu, returneaza o
+ eroare; daca da, poate efectua o translatare din termeni abstracti in 
+ termeni concreti - de ex. in cazul unui driver de disc aceasta poate
+ insemna convertirea unui numar de bloc in niste numere de cap, pista,
+ sector si cilindru, corespunzatoare geometriei discului;
+- apoi verifica daca echipamentul este curent in folosire; daca da, cererea
+ este pusa intr-o coada pentru procesare ulterioara; daca nu, este examinata
+ starea hardware-ului pentru a vedea daca cererea poate fi rezolvata acum;
+ de ex. poate fi necesara pornirea echipamentului sau a unui motor;
+- dupa ce echipamentul este pornit si pregatit, poate incepe controlul
+ efectiv al acestuia; controlul consta in a-i da o secventa de comenzi, pe
+ care o construieste driverul si apoi le scrie in registrii controlorului
+ echipamentului; dupa fiecare comanda scrisa, poate fi necesar ca driverul
+ sa verifice daca controlorul a acceptat-o si este pregatit s-o accepte pe
+ urmatoarea; unor controloare li se poate da o lista inlantuita de comenzi
+ (in memorie) cerandu-li-se sa le citesaca si sa le procesese singure, fara
+ ajutor din partea SO;
+- dupa ce s-au dat comenzile, driverul fie se blocheaza asteptand pana ce
+ controlorul efectueaza o parte din treaba si emite o intrerupere care il
+ deblocheaza, fie operatia se termina imediat (ex. defilarea ecranului in
+ mod text, care se desfasoara in nanosecunde) asa ca driverul nu este
+ necesar sa se blocheze;
+- dupa ce operatia s-a terminat, driverul verifica daca au aparut erori;
+ daca nu, driverul poate avea niste date ce trebuie transmise partii soft
+ independenta de echipament (de ex. un bloc citit);
+- in final driverul returneaza niste informatii despre starea sa, pentru
+ raportarea erorilor catre apelantul sau;
+- daca mai asteapta in coada si alte cereri, este preluata una din ele;
+ altfel, driverul se blocheaza asteptand urmatoarea cerere.
+
+ Exista si alti factori ce complica modelul de mai sus; de ex. un echipament
+de I/O isi poate termina o operatie, emitand o intrerupere, in timp ce un
+driver ruleaza, intrerupandu-se driverul respectiv si executandu-se driverul
+acelui echipament; poate fi vorba chiar de acelasi driver; de ex. daca vine
+un pachet in retea in timp ce driverul de retea prelucreaza un pachet deja
+venit. De aceea driverele trebuie sa fie REENTRANTE (REENTRANT), adica sa
+poata fi apelate a doua oara, inainte ca primul apel sa se fi terminat, iar
+functionarea celor doua apeluri sa nu fie afectata.
+
+ In sistemele foarte adaptabile (hot pluggable system), echipamentele pot
+fi adaugate/eliminate in timp ce calculatorul este in functiune. Atunci,
+in timp ce un driver este ocupat se manevreze un echipament, sistemul il
+poate informa ca echipamentul a fost eliminat din sistem, si atunci driverul
+trebuie sa abandoneze operatiile sale in curs fara a afecta datele
+nucleului, sa anuleze elegant toate cererile in asteptare pentru acel
+echipament si sa informeze pe cei care le-au trimis despre ce s-a intamplat.
+Mai mult, daca un echipament este adaugat, nucleul poate redistribui resurse
+(ex. linii deintrerupere), luand unele dintre ele de la driver si dandu-i in
+schimb altele.
+
+ Driverele n-au voie sa faca apeluri sistem, dar interactioneaza cu nucleul,
+de regula apeland niste proceduri - de ex. pentru alocarea/dezalocarea unor
+pagini cablate (hardwired) de memorie in scopul folosirii lor ca tampon,
+pentru controlul MMU, al ceasurilor, controlorului DMA, controlorului de
+intreruperi, etc.
+
+Software de I/O independent de echipament (device-independent I/O software):
+----------------------------------------------------------------------------
+
+ Delimitarea intre drivere si partea de soft independenta de echipament tine
+de sistem si de echipament - anumite functii independente de echipament pot
+fi realizate in drivere, de ex. din motive de eficienta.
+ Prezentam mai jos functiile uzuale realizate in softul independent de
+echipament, cea principala fiind executarea functiile de I/O comune tuturor
+echipamentelor si oferirea unei interfate uniforme softului de nivel
+utilizator:
+
+- interfatarea uniforma pentru drivere de echipament:
+
+ Echipamentele de I/O si driverele lor trebuie facute sa arate cat mai
+asemanator, altfel, daca ar fi interfatate in moduri diferite, SO ar trebui
+modificat la fiecare adaugare a unui nou echipament.
+ Intr-adevar, daca fiecare driver are o interfata diferita cu SO, adica
+functiile driverului pe care le poate apela SO sunt diferite de la driver la
+driver, eventual functiile nucleului necesitate de driver sunt diferite,
+atunci atunci este necesar un efort de programare suplimentar pentru
+interfatarea fiecarui nou echipament.
+ Daca driverele au aceeasi interfata, e mult mai usor sa adaugam un driver
+nou, cu conditia sa fie conform cu interfata - astea presupune ca cei care
+scriu driverele sa stie ce functii sa furnizeze si ce functii ale nucleului
+pot apela. In practica, echipamentele nu sunt perfect identice, dar exista
+un numar redus de tipuri de echipament.
+
+ Legat de interfatarea uniforma este modul de denumire al dispozitivelor de
+I/O; partea de soft independenta de echipament se ocupa de corespondenta
+intre numele simbolic si echipament.
+ De ex. in UNIX un nume de dispozitiv, cum ar fi "/dev/disk0" specifica in
+mod unic i-nodul unui fisier special, iar acest i-nod contine NUMARUL MAJOR
+DE ECHIPAMENT (MAJOR DEVICE NUMBER), care este folosit pentru a identifica
+driverul corespunzator, si NUMARUL MINOR DE ECHIPAMENT (MINOR DEVICE
+NUMBER), care este transmis ca parametru driverului pentru a specifica
+unitatea citita sau scrisa.
+
+ Legata de denumire este protectia - cum poate SO sa previna accesul
+utilizatorilor la echipamente la care nu au dreptul de acces. In UNIX sau
+Windows 2000, echipamentele apar ca obiecte cu nume in sistemul de fisiere,
+deci regulile de protectie pentru fisiere se aplica si la echipamente de
+I/O; ele pot fi setate de administrator pentru fiecare echipament.
+
+- utilizarea memoriei tampon (buffering);
+
+ Ilustram diversele probleme legate de utilizarea memoriei tampon in cazul
+unui proces care vrea sa citeasca date de la un modem; sunt mai multe
+strategii posibile:
+
+(a) Pentru fiecare caracter, procesul efectueaza cate un apel sistem de
+citire si se blocheaza, sosirea caracterului genereaza o intrerupere,
+iar serviciul (procedura) de tratare a intreruperii livreaza caracterul
+procesului si il deblocheaza.
+ Dezavantaj: procesul trebuie repornit la fiecare nou caracter, iar aceasta
+rulare de mai multe ori pentru perioade scurte nu este eficienta.
+
+(b) Mai eficient:
+ Procesul ofera un tampon de n caractere in spatiul utilizator si efectueaza
+un singur apel sistem, de citire a n caractere; serviciul de tratarea a
+intreruperii (intreruperea apare tot dupa fiecare caracter sosit, deoarece
+asa functioneaza modemul) pune fiecare caracter sosit in tampon, si doar
+dupa tamponul s-a umplut deblocheaza procesul.
+ Dezavantaj: pagina ce contine tamponul s-ar putea sa nu fie in memorie
+cand soseste un caracter; pagina tamponului ar putea fi blocata in memorie,
+dar daca mai multe procese incep sa blocheze pagini in memorie, numarul de
+cadre de pagina disponibile se reduce, rezultand o scadere a performantei.
+
+(c) Mai eficient:
+ Se aloca un tampon in nucleu, unde serviciul de tratare a intreruperii
+pune caracterele, iar cand acesta s-a umplut, pagina cu tamponul
+utilizatorului este incarcata in memorie (daca este cazul) si tamponul din
+nucleu este copiat in tamponul utilizatorului, printr-o singura operatie.
+ Dezavantaj: in timp ce tamponul din nucleu este copiat in tamponul
+utilizator pot sosi noi caractere; de fiecare data se genereaza
+intreruperea, iar serviciul de tratare a ei va incerca sa scrie caracterul
+in tamponul din nucleu, dar acesta este plin (inca nu a fost golit).
+
+(d) Mai eficient:
+ Este prezent un al doile tampon in nucleu; dupa ce primul tampon s-a
+umplut, dar inainte de a fi golit, este folosit al doilea tampon; dupa ce
+al doilea tampon s-a umplut, el este disponibil spre a fi copiat in tamponul
+utilizatorului (daca el l-a cerut), iar in timp ce este copiat noile
+caractere sosite sunt acumulate in primul tampon (cele doua tampoane sunt
+folosite cu schimbul); o asemenea schema de utilizare a tampoanelor s.n.
+DUBLA UTILIZARE A TAMPONULUI (DOUBLE BUFFERING).
+
+           -----------    -----------    -----------    -----------
+           |  Proces |    |         |    |         |    |         |
+           | ------- |    | ------- |    | ------- |    | ------- |
+   Spatiul | |     | |    | | === | |    | | === | |    | | === | |
+utilizator | |  ^  | |    | |  ^  | |    | |  ^  | |    | |  ^  | |
+           | ---|--- |    | ---|--- |    | ---|--- |    | ---|--- |
+           |    |    |    |    |    |    |    |    |    |    |    |
+           -----|-----    -----|-----    -----|-----    -----|-----
+           |    |    |    |    |    |    |    |    |    |    |    |
+           |    |    |    |    |    |    |    |    |    |  ---    |
+   Spatiul |    |    |    |    |    |    |    |    |    |  |      |
+    nucleu |    |    |    |    |    |    |   ===   |    | === === |
+           |    |    |    |    |    |    |    ^    |    |  ^   ^  |
+           -----|-----    -----|-----    -----|-----    ---|---|---
+                |              |              |            |   |
+             -------        -------        -------        -------
+       Modem |     |        |     |        |     |        |     |
+             -------        -------        -------        -------
+               (a)             (b)           (c)            (d)
+
+ Utilizarea tampoanelor este importanta si la iesire.
+ Sa vedem cum putem trimite prin modem niste caractere fara bufferizare,
+dupa modelul (b): procesul utilizator executa un apel sistem de scriere a
+n caractere; sistemul poate bloca procesul pana cand toate caracterele au
+fost scrise, dar acest lucru poate dura mult daca linia telefonica este
+lenta, sau poate elibera imediat procesul si sa faca operatiile de I/O in
+timp ce procesul lucreaza, dar atunci se pune problema cum afla procesul ca
+scrierea s-a terminat si poate refolosi tamponul utilizator; sistemul ar
+putea genera un semnal sau o intrerupere software, dar acest stil de
+programare este dificil si predispus la conditii de cursa.
+ O solutie mai buna este folosirea modelului (c): nucleul sa copieze datele
+intr-un tampon din nucleu si sa deblocheze apelantul imediat; atunci nu mai
+conteaza cand s-a terminat operatia de I/O, utilizatorul isi poate refolosi
+tamponul propriu imediat ce nu mai este blocat.
+
+ Utilizarea tampoanelor este larg folosita, dar are dezavantajul ca daca
+datele sunt bufferizate de prea multe ori, performanta are de suferit. Sa
+consideram de ex. urmatoarea retea:
+
+           -----------                                  -----------
+           |  Proces |                                  |         |
+           | ------- |                                  | ------- |
+   Spatiul | | === | |                                  | | === | |
+utilizator | |  |  | |                                  | |  ^  | |
+           | ---|--- |                                  | ---|--- |
+           |    |1   |                                  |    |5   |
+           -----|-----                                  -----|-----
+           |    |    |                                  |    |    |
+   Spatiul |    V    |                                  |    |    |
+    nucleu |   ===   |                                  |   ===   |
+           |    |    |                                  |    ^    |
+           -----|-----                                  -----|----|
+                V2                                           |4
+             -------                                      -------
+   Controlor | === |                                      | === |
+    de retea -------                                      -------
+                | |                                         ^|
+                | |3                 ===                    ||
+                | -------------------------------------------|
+             ---------------------------------------------------- Retea
+
+ procesul utilizator face un apel sistem pentru scrierea in retea;
+ nucleul copiaza pachetul intr-un tampon al sau, permitand procesului
+utilizator sa continue imediat (1);
+ cand e apelat, driverul copiaza pachetul in controlor (2) (pachetul nu este
+trimis direct din memoria nucleu in mediul fizic deoarece odata inceput
+transferul unui pachet acesta trebuie facut cu o viteza constanta, iar
+driverul nu poate garanta ca va obtine datele de la memorie cu viteza
+constanta deoarece canalele DMA si alte echipamente de I/O pot fura multe
+cicluri masina);
+ din tamponul intern al controlorului pachetul este copiat in retea (3);
+bitii sosesc la receptor la scurt timp dupa ce sunt transmisi, iar aici
+pachetul este acumulat in tamponul controlorului;
+ apoi pachetul este copiat in tamponul din nucleul receptorului (4);
+ in final, pachetul este copiat in tamponul procesului receptor (5);
+ de obicei receptorul trimite inapoi o confirmare, a.i. dupa primirea ei
+emitatorul poate trimite un nou pachet;
+ toti pasii 1 - 5 de mai sus se executa secvential, iar multitudinea acestor
+copieri diminueaza mult viteza transmisiei.
+
+- raportarea erorilor:
+
+ Erorile sunt mai comune in contextul I/O decat in alte contexte.
+ Multe erori sunt specifice diverselor echipamente si trebuie tratate de
+driverele corespunzatoare, dar cadrul de lucru pentru tratarea erorilor este
+independent de echipamente.
+ Exemple de clase de erori de I/O:
+ * erorile de programare:
+   exemple: un proces cere ceva imposibil (scrierea la un echipament de
+  intrare, citirea de la un echipament de iesire, etc.), furnizarea unei
+  adrese de tampon invalide sau a unor parametri incorecti, specificarea
+  unui echipament incorect (ex. discul 3, cand sistemul are doar doua);
+   rezolvare: transmiterea unui cod de eroare apelantului;
+ * erori de I/O propriuzise:
+   exemple: incercarea de a scrie un bloc de disc stricat, sau de a citi de
+  la o camera video oprita;
+   rezolvare: este treaba driverului sa decida ce trebuie facut, iar daca
+  driverul nu stie ce sa faca, el poate pasa problema mai sus, partii soft
+  independente de echipament; ce face acest soft depinde de mediu si de
+  natura erorii: de ex. daca este o eroare de citire si exista un utilizator
+  interactiv disponibil, ar putea afisa o caseta de dialog cu optiuni ca
+  incercarea din nou a citirii, ignorare, terminarea procesului, iar daca nu
+  exista un utilizator disponibil se lasa apelul sistem sa esueze cu cod de
+  eroare;
+   unele erori nu pot fi tratate astfel; de ex. la distrugerea unor
+  structuri de date critice, precum directorul radacina sau lista blocurilor
+  libere, sistemul ar trebui sa afiseze un mesaj de eroare si sa se termine.
+
+- alocarea si eliberarea echipamentelor dedicate:
+
+ Unele echipamente pot fi folosite doar de un singur proces la un moment
+dat (ex. CD-ROM); este treaba SO sa analizeze cererile de folosire a
+echipamentului si sa le accepte/respinga in functie de disponibilitatea
+acestuia.
+
+ O modalitate de a controla aceste cereri este de a impune proceselor sa
+execute apelul sistem de deschidere/inchidere a fisierului special asociat
+echipamentului; deschiderea face si alocarea echipamentului catre proces,
+inchiderea face si dezalocarea; daca alocarea nu este posibila, apelul
+de deschidere esueaza.
+
+ Alta modalitate este de a avea mecanisme (apeluri) speciale de alocare/
+dezalocare a echipamentelor; daca echipamenul nu este disponibil, apelul
+de alocare va bloca procesul apelant (pana va putea obtine echipamentul) in
+loc sa esueze; procesele blocate sunt puse intr-o coada; cand echipamentul
+devine disponibil, primul proces din coada este deblocat si primeste
+echipamentul.
+
+- furnizarea unei dimensiuni de bloc independente de echipament:
+
+ Diverse discuri pot avea sectoare de dimensiune diferita; este treaba
+softului independent de echipament sa ascunda asta si sa furnizeze
+nivelurilor superioare o dimensiune uniforma a blocurilor, de ex.
+considerand cateva sectoare impreuna ca un singur bloc logic. Astfel,
+nivelurile superioare lucreaza numai cu echipamente abstracte ce folosesc
+aceeasi dimensiune de bloc logic, independenta de dimensiunea sectorului
+fizic.
+ Similar, unele echipamente caracter furnizeaza datele bit cu bit (ex.
+modemurile), in timp ce altele lucreaza cu unitati mai mari (ex. interfetele
+de retea); aceste diferente pot fi de asemenea ascunse.
+
+Software I/O de nivel utilizator:
+---------------------------------
+
+ Desi majoritatea softului de I/O este in SO, o parte din el consta din
+biblioteci legate la programele utilizator, sau chiar programe intregi
+ruland in spatiul utilizator.
+
+ De ex. in bibliotecile compilatorului de C gasim:
+-  functii de interfatare cu apelurile sistem, care permit efectuarea
+ apelurilor sistem in maniera C, ex. "write()";
+   o asemenea functie ia parametrii din stiva (unde sunt incarcati conform
+ conventiilor C) si ii plaseaza in registri sau acolo unde ii cauta
+ apelul sistem, apoi apeleaza apelul sistem propriuzis, cu "int $0x80"
+ (detalii in cursul 5);
+   utilizarea acestor functii asigura performanta (nu se executa multe
+ instructiuni in plus fata de apelul sistem propriuzis), dar nu si
+ portabilitate (aceste functii reflecta direct modul de functionare a
+ apelurilor sistem, iar apelurile sistem difera de la un SO la altul);
+-  functii standard de I/O (din biblioteca standard C), ex. "fprintf()";
+   aceste functii se apeleaza in acelasi fel si au aceeasi semantica
+ (descrisa in standardul limbajului C), indiferent de SO gazda; evident,
+ si ele trebuie sa efectueze apelurile sistem, dar pentru a obtine acea
+ uniformitate a apelului si semanticii fac mai mult decat o interfatare
+ directa;
+   astfel, utilizarea acestor functii asigura portabilitate, dar mai scade
+ din performanta (pentru ca se executa mai multe lucruri suplimentare);
+   in plus, printre functiile din biblioteca standard C gasim si unele
+ care efectueaza operatii ce nu pot fi efectuate direct cu apeluri sistem,
+ ex. citirea/scrierea cu format (deci, ele executa mult mai multe lucruri in
+ plus in afara de apelurile sistem propriuzise).
+
+ Printre programele intregi de I/O care ruleaza in spatiul utilizator se
+numara sistemele de virtualizare.
+ VIRTUALIZAREA (SPOOLING) este o modalitate de a lucra neexclusiv cu un
+echipament de I/O dedicat, in sistemele cu multiprogramare; concret, se
+creaza o resursa logica intermediara, care poate fi alocata neexclusiv,
+si un proces care coreleaza resursa intermediara cu cea fizica (detalii
+in cursul 7); acest proces este singurul care are acces la resursa fizica,
+iar el ruleaza un program de I/O in spatiul utilizator.
+ De ex. ar fi usor d.p.v tehnic sa permitem proceselor utilizator sa-si
+aloce direct imprimanta, deschizand fisierul special asociat ei, dar atunci
+daca un proces deschide imprimanta si nu face nimic timp de cateva ore, nici
+un alt proces nu va putea folosi imprimanta. De aceea, in loc sa se permita
+acest lucru, se creaza un director special numit DIRECTOR DE VIRTUALIZARE
+(SPOOLING DIRECTORY) si un proces special DAEMON (PRINTER DAEMON); pentru a
+tipari un fisier, un proces utilizator genereaza o copie a fisierului pe
+care o pune in directorul de virtualizare; printer daemon-ul e singurul
+proces care poate folosi fisierul special al imprimantei (acest fisier e
+protejat de accesul direct al utilizatorilor), si va tipari fisierele din
+directorul de virtualizare.
+ Virtualizarea este folosita si in alte situatii, de ex. transferul de
+fisiere intr-o retea, folosind un director de virtualizare in retea si un
+daemon de retea. De ex. asa functioneaza sistemul de stiri USENET.
+
+ Ilustram din nou nivelurile software-ului de I/O, evidentiind functiile
+principale ale fiecaruia si fluxul de control:
+
+         Nivel                            Functiile I/O
+ ----------------------
+ |       Procese      |  Efectuare apel I/O, formatare I/O, virtualizare
+ | |  utilizator    ^ |
+ --|----------------|--
+ | V   Soft           |
+ |   independent      |  Denumire, protectie, blocare, bufferizare, alocare   
+ | | de echipament  ^ |
+ --|----------------|--
+ | V  Drivere de      |  Seteaza registri echipamentului; verifica starea
+ |    echipament    ^ |
+ --|----------------|--
+ | |  Rutine de       |
+ | |  tratare a       |  Trezeste driverul cand operatia de I/O s-a terminat
+ | | intreruperilor ^ |
+ --|----------------|--
+ | V    Hardware      |  Executa operatia de I/O
+ ----------------------
+
+
+TODO:
+ - discuri, ceasuri, eventual alte echipamente, interfete utilizator;
+ - cazul UNIX/Linux: interfata shell (comezi si programare shell),
+                   eventual: ncurses, interfata X-Windows (programare xlib);
+
+
+Dragulici Dumitru Daniel,
+Facultatea de matematica si informatica,
+Universitatea Bucuresti,
+2008

@@ -1,0 +1,2359 @@
+Cursul 8 - Gestiunea memoriei
+=============================
+
+ In decursul timpului, programele cresc in dimensiuni mai repede decat
+memoria. Legea lui Parkinson: "Programele se extind pentru a ocupa toata
+memoria care le este pusa la dispozitie".
+ Este necesar un mecanism de gestionare a memoriei disponibile.
+
+ Multe calculatoare au o MEMORIE IERARHICA (MEMORY HIERARCY) formata din:
+- memorie cache - rapida, mica, volatila, scumpa;
+- memorie principala (RAM) - viteza medie, dimensiune medie, volatila, nu
+                                prea scumpa;
+- memorie pe disc - viteza mica, dimensiune mare, nevolatila, ieftina.
+Partea SO care gestioneaza aceasta memorie ierarhica s.n. MANAGER DE MEMORIE
+(MEMORY MANAGER).
+
+ In contiunare vom analiza cateva scheme de gestiune a memoriei; schemele
+cele mai simple nu mai sunt folosite pe calculatoarele personale, dar sunt
+inca folosite pe unele palmtop-uri, sisteme incorporate (embedded) si
+cartele inteligente (smart cards).
+
+ Sistemele de gestiune a memoriei pot fi:
+- sisteme fara interschimbare sau paginare;
+- sisteme cu interschimbare si paginare (swapping and paging): comuta
+ procesele intre memorie si disc pe parcursul executiei acestora.
+
+1. Gestiunea elementara a memoriei (fara interschimbare sau paginare):
+----------------------------------------------------------------------
+
+Cazul monoprogramarii:
+----------------------
+
+ Cea mai simpla schema de gestiune a memoriei este rularea unui singur
+program (proces) la un moment dat, cu impartirea memoriei intre acel
+program si SO.
+ Sistemul afisaza un prompter, utilizatorul da o comanda, sistemul incarca
+programul respectiv de pe disc in memorie si il executa ca proces; cand
+procesul se termina, sistemul afisaza iar prompterul, etc.; la fiecare noua
+comanda, programul incarcat in memorie suprascrie pe cel vechi.
+
+Trei variante organizare a memoriei in aceasta schema de gestiune:
+
+  ---------------- 0xFFF... ----------------          ----------------
+  |              |          |              |          |  Drivere de  | 
+  |              |          |  SO in ROM   |          |echipament in |
+  |              |          |              |          |     ROM      |
+  |  Programul   |          ----------------          ----------------
+  |utilizatorului|          |              |          |              |
+  |              |          |              |          |  Programul   |
+  |              |          |              |          |utilizatorului|
+  |              |          |  Programul   |          |              |
+  ----------------          |utilizatorului|          ----------------
+  |              |          |              |          |              |
+  |  SO in RAM   |          |              |          |  SO in RAM   |
+  |              |          |              |          |              |
+  ---------------- 0        ----------------          ----------------
+  model folosit pe          model folosit pe          model folosit pe
+  vechile mainframe si      unele palmtop-uri         primele PC-uri (partea
+  minicalculatoare          si sisteme incorporate    SO din ROM s.n. BIOS)
+
+prescurtari: RAM = Random Access Memory (memorie cu acces aleator)
+             ROM = Read-Only Memory (memorie cu acces doar in citire)
+       BIOS = Basic Input Output System (sistem elementar de intrare iesire)
+
+Multiprogramare cu partitii fixe:
+---------------------------------
+
+ Majoritatea sistemelor moderne permit rularea mai multor procese in acelasi
+timp; atunci, daca un proces este blocat asteptand terminarea unei operatii
+de I/O, altul poate folosi procesorul - deci multiprogramarea creste gradul
+de utilizare a procesorului.
+
+ Cea mai simpla modalitate de a face multiprogramare este de a diviza
+memoria in n partitii (posibil inegale ca dimensiune); partitiile se pot
+specifica de exemplu manual, la pornirea sistemului. Orice proces nou este
+plasat intr-o coada de asteptare, iar cand o partitie este libera se incarca
+un proces in ea si se ruleaza pana la terminare (in paralel cu procesele
+incarcate in celelalte partitii). Deoarece partitiile sunt fixe, orice
+spatiu dintr-o partitie care nu este folosit de un proces este pierdut.
+ Se pot folosi:
+- cozi diferite pentru fiecare partitie; orice nou proces este pus in coada
+ de intrare a celei mai mici partitii care il poate cuprinde;
+  dezavantaj: daca coada pentru o partitie mare este goala iar coda pentru
+ o partitie mica este plina, procesele mici nu sunt incarcate in partitia
+ mare - ele asteapta continuare in coada lor sa fie incarcate in memorie,
+ desi exista suficienta memorie libera;
+- intr-o singura coada; cand o partitie devine libera, se incarca in ea
+ procesul cel mai apropiat de varful cozii care incape in partitia
+ respectiva;
+  pentru a nu se risipi o partitie mare pentru un proces mic, o alternativa
+ este ca atunci cand o partitie se elibereaza sa se caute prin toata coada
+ cel mai mare proces care incape in ea; acest algoritm insa dezavantajaza
+ procesele mici, care se considera ca nu merita o partitie pentru ele, in
+ conditiile in care este de preferat sa se ofere proceselor mici (in general
+ interactive) cea mai buna deservire, nu cea mai slaba; solutii:
+   * existenta unei partitii mici, care ar permite rularea proceselor
+    mici fara a fi nevoie sa se aloce o partitie mare pentru ele;
+   * impunerea regulii ca un proces ce trebuie executat sa nu poata
+    fi sarit de > k ori; de fiecare data cand este sarit i se acorda
+    un punct, iar cand a acumulat >= k puncte nu mai poate fi sarit.
+
+          --------------800K                        --------------
+    ()-()-| partitia 4 |                         .--| partitia 4 |
+          --------------700K                     |  --------------
+          |            |                         |  |            |
+          | partitia 3 |                         |--| partitia 3 |
+          |            |                         |  |            |
+          --------------400K   ()-()-()-()-()-()-|  --------------
+       ()-| partitia 2 |                         |--| partitia 2 |
+          |            |                         |  |            |
+          --------------200K                     |  --------------
+ ()-()-()-| partitia 1 |                         '--| partitia 1 |
+          --------------100K                        --------------
+          |     SO     |                            |     SO     |
+          --------------                            --------------
+ cozi de intrare mutiple                o singura coada de intrare
+
+ Sistemul cu partitii fixe stabilite de operator dimineata si care nu se
+schimba mai tarziu a fost folosit de OS/360 pe mainframe-urile IBM; se numea
+MFT (Multiprogramming with a Fixed number of Tasks - Multiprogramare cu un
+numar fix se sarcini), sau OS/MFT.
+
+Modelarea si analiza performantelor multiprogramarii:
+-----------------------------------------------------
+
+ Multiprogramarea imbunatateste utilizarea procesorului. De ex. daca un
+proces foloseste in medie 20 % din timpul procesorului, atunci 5 asemenea
+procese rulate simultan ar folosi procesorul la maxim. Am presupus insa ca
+procesele nu asteapta niciodata pentru operatii I/O in acelasi timp.
+
+ Un model mai bun este analiza utilizarii procesorului d.p.v. statistic:
+daca un proces petrece o fractiune p din timpul sau asteptand terminarea
+unei operatii I/O iar in memorie sunt n asemenea procese (n s.n. grad de
+multiprogramare), atunci probabilitatea ca toate sa astepte simultan in I/O
+(si deci ca procesorul sa fie liber) este p^n ("^" inseamna "la puterea"),
+si astfel avem formula:
+
+                 utilizarea procesorului = 1 - p^n
+
+am presupus insa ca procesele sunt independente, in particular ca ele se pot
+rula in paralel fara sa se incomodeze; in practica insa daca la un acelasi
+procesor un proces devine ready in timp ce altul ocupa procesorul, el va
+trebui sa astepte - deci procesele nu sunt independene; un model mai bun
+decat cel probabilistic de mai sus este bazat pe teoria cozilor.
+
+ Cu formula anterioara, daca p = 80% (i.e procesele asteapta 80 % din timp
+la I/O) atunci trebuie n > 10 pentru ca irosirea procesorului sa fie < 10 %
+(i.e. trebuie ca 1 - 0.8^n > 0.9).
+ Timpii de asteptare de >= 80 % nu sunt neobisnuiti, de ex. la procesele
+interactive, care atunci cand asteapta ca utilizatorul sa introduca o
+comanda de la terminal, sunt de fapt in starea de asteptare pentru I/O.
+
+ Modelul probabilistic de mai sus ne permite sa facem si previziuni. De ex. 
+daca masina are 32 MB memorie, din care SO ocupa 16 MB iar fiecare program
+utilizator cate 4 MB, putem incarca simultan in memorie 4 programe; cu o
+asteptare medie la I/O de 80 % rezulta o utilizare a procesorului
+(ignorand supraincarcarea produsa de SO) de 1 - 0.8^4 = aprox. 60 %. Daca
+adaugam inca 16 MB memorie, putem rula 8 programe simultan, obtinand o
+utilizare a procesorului de 83 %; deci cei 16 MB cresc productivitatea cu
+38 %. Daca adaugam inca 16 MB memorie, utilizarea procesorului creste la
+93 %, deci productivitatea creste cu inca 12 %. Pe baza acestui model,
+proprietarul calculatorului poate decide ca prima adaugarea de 16 MB sunt o
+investitie rentabila, iar urmatoarea nu.
+
+ Modelul anterior se poate folosi si la analiza sistemelor de prelucrare pe
+loturi. De ex. presupunem ca la un centru de calcul unde sarcinile asteapta
+in medie 80 % la I/O, vin de la inceputul zilei urmatoarele sarcini:
+
+sarcina | momentul sosirii | timp procesor necesar
+--------------------------------------------------
+    1   |      10:00       |           4 min
+--------------------------------------------------
+    2   |      10:10       |           3 min
+--------------------------------------------------
+    3   |      10:15       |           2 min
+--------------------------------------------------
+    4   |      10:20       |           2 min
+--------------------------------------------------
+
+Secventa de evenimente rezultata este redata de urmatoarea diagrama, unde
+pe orizontala este timpul fizic (liniile verticale corespund momentelor cand
+se schimba ceva), pe verticala sunt sarcinile (liniile orizontale corespund
+intervalului total de rulare a sarcinilor si am notat deasupra fiecareia
+timpul procesor consumat de sarcina respectiva in fiecare interval):
+
+sarcina
+   |       2.0       |    .9    |    .8    | .3 |               |  |       |
+ 1 ----------------------------------------------               |  |       |
+   |                 |    .9    |    .8    | .3 |      .9       |.1|       |
+ 2 |                 -----------------------------------------------       |
+   |                 |          |    .8    | .3 |      .9       |  |       |
+ 3 |                 |          ---------------------------------  |       |
+   |                 |          |          | .3 |      .9       |.1|  .7   |
+ 4 |                 |          |          ---------------------------------
+   |                 |          |          |    |               |  |       |
+   -------------------------------------------------------------------------
+   0                10         15         20   22            27.6 28.2  31.7
+                                                                        timp
+de ex:
+- in intervalul 10:00 - 10:10, sarcina 1 este singura, si intrucat asteapta
+ 80 % = 0.8 din timp la I/O, consuma 10 min * 0.8 = 2 min timp procesor;
+- in intervalul 10:10 - 10:15, avem 2 sarcini (planificate round-robin),
+ deci procesorul este folsit 1-0.8^2 = 0.36 = 36 %, fiecarei sarcini
+ revenindu-i (1/2) * 5 min * 0.36 = 0.9 min timp procesor; astfel, fiecare
+ sarcina detine procesorul 0.9 / 5 = 0.18 = 18 % din timp, fata de 20 % in
+ cazul cand s-ar fi rulat singura - deci adaugarea celei de-a doua sarcini
+ o costa pe prima (20 - 18) / 20 = 0.1 = 10 % din performanta;
+s.a.m.d. (fiecare sarcina va dura pana totalizeaza numarul de minute de
+timp procesor specificat in primul tabel, de exemplu pentru sarcina 1:
+2.0 + 0.9 + 0.8 + 0.3 = 4).
+
+Realocarea si protejarea:
+-------------------------
+
+ Multiprogramarea introduce doua probleme ce trebuie rezolvate: realocarea
+si protectia.
+
+ Pentru a fi rulate simultan, programe diferite se vor incarca in memorie
+la adrese diferite, iar adresa la care va fi incarcat un program nu este
+cunoscuta la momentul crearii acestuia; cand programul este compilat, apelul
+unei proceduri aflata la offset-ul 100 in cadrul fisierului binar rezultat
+este tradus de linkeditor printr-un salt la adresa 100; daca insa la
+momentul rularii ca proces programul este incarcat in memoria fizica la
+adresa 100K, apelul trebuie sa faca de fapt un salt la adresa 100K + 100.
+Aceasta problema s.n. problema REALOCARII.
+ Problema PROTECTIEI se refera la necesitatea ca un proces sa nu poata
+citi/scrie in afara zonei de memorie repartizate lui, lucru importatant de
+ex. intr-un sistem cu mai multi utilizatori, in care trebuie protejate
+datele fiecaruia de accesul celorlalti.
+
+ Solutii:
+
+- modificarea efectiva a instructiunilor la incarcarea programului in
+ memorie (de ex. cand programul se incarca la adresa 100K, fiecarei
+ adrese specificate in el i se adauga 100K); pentru a se putea efectua
+ realocarea la incarcarea programului in memorie, linkeditorul trebuie sa
+ includa in programul binar o harta (lista) cu cuvintele din program care
+ reprezinta adrese ce trebuie realocate si cuvintele din program care
+ reprezinta instructiuni, constante sau alte elemente ce nu trebuie
+ realocate; sistemul OS/MFT opera astfel;
+  realocarea in timpul incarcarii nu rezolva problema protectiei, deoarece
+ intr-un asemenea sistem se folosesc adrese absolute (in loc de adrese
+ relative fata de un registru) si astfel nu exista o modalitate de a
+ impiedica un program sa citeasca/scrie orice cuvant din memorie; un program
+ rauvoitor poate oricand sa construiasca o instructiune noua (neafectata de
+ sistemul de translatare) si sa sara la ea;
+  solutia gasita de IBM pentru modelul 360 a fost impartirea memoriei in
+ blocuri de 2K si asocierea unei chei de protectie de 4 biti pentru fiecare
+ bloc; hardul detecta orice incercare a unui proces de a accesa memoria a
+ carei cheie diferea de codul memorat in propriul cuvant de stare si numai
+ SO putea modifica codurile si cheile;
+
+- se folosesc a doi registri hard speciali, numiti BAZA si LIMITA; la
+ incarcarea unui proces reg. baza este incarcat cu adresa de inceput a
+ partitiei, iar reg. limita cu dimensiunea partitiei; programul incarcat nu
+ este modificat, dar de fiecare data cand la executie este referita o
+ adresa de memorie, la ea este adunat mai intai reg. de baza si se verifica
+ sa nu se depaseasca reg. limita; de ex. daca reg. de baza contine 100K,
+ la intalnirea unei instructiuni CALL 100 din program se executa de fapt
+ CALL 100K+100, fara sa se modifice instructiunea; reg. baza si limita sunt
+ protejate prin hard impotriva modificarii de catre programele utilizator;
+  dezavantaj: la fiecare accesare a memoriei se executa o adunare si o
+ comparatie in plus;
+  aceasta metoda a fost folosita de primul supercalculator din lume,
+ CDC 6600, iar o varianta mai slaba (anume doar registri de baza) a fost
+ folosita de primele calculatoare IBM PC.
+
+2. Interschimbarea (swapping):
+------------------------------
+
+ Daca nu exista suficienta memorie principala pentru toate procesele active
+la un moment dat (de exemplu in sistemele cu divizarea timpului sau
+calculatoarele personale cu interfata grafica), procesele trebuie pastrate
+pe disc si (re)aduse dinamic in memorie pentru a fi executate.
+ In acest sens exista doua strategii:
+- INTERSCHIMBAREA (SWAPPING): aducerea unui intreg proces in memorie,
+ executia sa un timp, apoi trecerea lui inapoi pe disc;
+- MEMORIA VIRTUALA: permite programelor sa ruleze chiar daca nu sunt
+ incarcate complet in memorie;
+In aceasta sectiune ne referim la interschimbare, in urmatoarea la paginare.
+
+ Cand se foloseste interschimbarea, un acelasi proces poate fi mutat de mai
+multe ori intre memorie si disc, si de fiecare data poate fi incarcat in
+memorie la alta adresa - atunci adresele continute in el trebuie realocate,
+fie de catre soft, la momentul reincarcarii in memorie (mai probabil), fie
+de catre hard, la momentul executiei. In plus, partitiile de memorie sunt
+acum dinamice (nu fixe ca inainte) variind ca numar, pozitie si dimensiune,
+pe masura ce procesele vin si pleaca; aceasta flexibilitate conduce la o
+folosire mai eficienta a memoriei (se iroseste mai putina) dar complica
+modul in care se face alocarea, dezalocarea si urmarirea starii memoriei.
+
+Exemplu de functionare al unui sistem cu interschimbare (cu "xxx" am marcat
+zonele de memorie nefolosite):
+
+Timp --->
+---------  ---------  ---------  ---------  ---------  ---------  ---------
+|xxxxxxx|  |xxxxxxx|  |xxxxxxx|  |xxxxxxx|  |xxxxxxx|  |xxxxxxx|  |xxxxxxx|
+|xxxxxxx|  |xxxxxxx|  ---------  ---------  ---------  ---------  ---------
+|xxxxxxx|  |xxxxxxx|  |       |  |       |  |       |  |       |  |       |
+|xxxxxxx|  |xxxxxxx|  |   C   |  |   C   |  |   C   |  |   C   |  |   C   |
+|xxxxxxx|  |xxxxxxx|  |       |  |       |  |       |  |       |  |       |
+|xxxxxxx|  ---------  ---------  ---------  ---------  ---------  ---------
+|xxxxxxx|  |   B   |  |   B   |  |   B   |  |   B   |  |xxxxxxx|  |       |
+---------  ---------  ---------  ---------  ---------  |xxxxxxx|  |       |
+|       |  |       |  |       |  |xxxxxxx|  |xxxxxxx|  |xxxxxxx|  |   A   |
+|       |  |       |  |       |  |xxxxxxx|  |xxxxxxx|  |xxxxxxx|  |       |
+|   A   |  |   A   |  |   A   |  |xxxxxxx|  |xxxxxxx|  |xxxxxxx|  |       |
+|       |  |       |  |       |  |xxxxxxx|  ---------  ---------  ---------
+|       |  |       |  |       |  |xxxxxxx|  |   D   |  |   D   |  |   D   |
+---------  ---------  ---------  ---------  ---------  ---------  ---------
+|  SO   |  |  SO   |  |  SO   |  |  SO   |  |  SO   |  |  SO   |  |  SO   |
+---------  ---------  ---------  ---------  ---------  ---------  ---------
+
+ Atunci cand in urma interschimbarii sunt create spatii de memorie, este
+posibil ca ele sa fi unite, prin mutarea in jos a proceselor cat mai mult
+posibil - aceasta tehnica s.n. COMPACTAREA MEMORIEI (MEMORY COMPACTION);
+nu este foarte folosita, deoarece necestia mult timp de procesor.
+
+ Alta problema este cat spatiu trebuie alocat unui proces atunci cand este
+creat sau adus de pe disc. Daca procesele sunt create cu o dimensiune fixa,
+atunci SO aloca exact cat este necesar. Daca insa segmentele de date ale
+proceselor pot creste (de ex. prin alocarea dinamica de memorie pe care
+multe limbaje de programare o ofera) atunci la fiecare incercare de crestere
+a procesului:
+- daca exista spatiu liber langa proces, el poate fi alocat si folosit;
+- daca nu, procesul trebuie mutat intr-un spatiu suficient de mare
+ (eventual unele procese sunt trecute pe disc pentru a elibera loc);
+- daca un proces nu poate creste in memorie si discul este plin, el trebuie
+ sa astepte sau trebuie omorat.
+
+ Daca este de asteptat ca procesele sa creasca la rulare, se poate reduce
+supraincarcarea sistemului cauzata de mutari sau swapari pe disc ale altor
+procese prin alocarea de memorie suplimentara la fiecare incarcare sau
+mutare; insa, pentru a economisi timp si spatiu, la trecerea pe disc ar
+trebui salvata doar memoria folosita efectiv.
+ Exemplu de alocare a memoriei in cazul proceselor cu un singur segment de
+date in crestere:
+
+  Memoria fizica --->
+  -----------------------------------------------------
+  |    |         :        |xxxxxxxx|         :        |
+  | SO |    A    : -->    |xxxxxxxx|    B    : -->    |
+  |    |         :        |xxxxxxxx|         :        |
+  -----------------------------------------------------
+        spatiu    spatiu            spatiu    spatiu
+        utilizat  pentru            utilizat  pentru
+                  crestere                    crestere
+
+ Daca procesele au doua segmente de date ce pot creste, se poate folosi o
+aranjare diferita - de ex. stiva (folosita pentru gestionarea apelurilor
+de functii) si heap-ul (folosit pentru alocari de variabile dinamice) se
+pot organiza ca doua zone ce cresc una spre alta in acelasi segment, si
+oricare poate folosi spatiul liber dintre ele; daca acest spatiu se termina,
+procesul trebuie mutat intr-un spatiu liber mai mare, trecut pe disc pana
+se elibereaza suficienta memorie sau omorat. Exemplu (am unificat heap-ul cu
+zona de date statice):
+
+  Memoria fizica --->
+  -----------------------------------------------------------
+  |    | cod |date:     :stiva|xxxxxxxx|cod|date:     :stiva|
+  | SO |  A  | A  :-> <-:  A  |xxxxxxxx| B | B  :-> <-:  B  |
+  |    |     |    :     :     |xxxxxxxx|   |    :     :     |
+  -----------------------------------------------------------
+                  spatiu                        spatiu
+                  pentru                        pentru
+                  crestere                      crestere
+
+ Este sarcina SO sa gestioneze memoria in cazul alocarii dinamice. Exista
+doua metode de urmarire a spatiului folosit:
+- HARTI DE BITI (BITMAPS);
+- LISTE DE SPATIU LIBER (FREE LISTS).
+
+Gestiunea memoriei folosind harti de biti:
+------------------------------------------
+
+Metoda: memoria este impartita in unitati de alocare, fiecarei unitati ii
+ corespunde un bit in harta de biti, avand valoarea 0=unitatea este libera,
+ 1=unitatea este alocata (sau invers).
+
+Dimensiunea unitatii de alocare este o problema importanta de alocare:
+- daca este prea mica, harta de biti este prea mare (ocupa ea insasi prea
+ multa memorie);ex: daca unitatea are 32 biti, harta ocupa 1/33 din memorie;
+- daca este prea mare, harta e mica, dar se va irosi multa memorie in
+ ultimile unitati ale proceselor, daca dimensiunea lor nu este multiplu al
+ unitatii.
+
+Un dezavantaj al hartilor pe biti: daca sunt necesare k unitati de alocare
+pentru a incarca un proces in memorie, trebuie cautata o succesiune de k
+biti 0 in toata harta, iar aceasta este o operatie lenta, deoarece cautarea
+poate traversa limitele cuvintelor de memorie din harta.
+
+Exemplu (cu 5 procese si 3 spatiilibere, marcate cu "xxx"):
+
+|    A    |xxxxx|     B     |   C   |xxx|     D     |  E  |xxxxx|
+--'-'-'-'-'-'-'-|-'-'-'-'-'-'-'-|-'-'-'-'-'-'-'-|-'-'-'-'-'-'-'-|...
+ ^ ^ ^ ^ ^ ^ ^ ^8              16              24              32
+ |_| | | | | | |
+ ||  | | | | | |
+ ||__| | | | | |
+ |||___| | | | |
+ ||||____| | | |
+ |||||_____| | |
+ ||||||______| |
+ |||||||_______|
+-||||||||-
+|11111000|
+----------
+|11111111|
+----------
+|11001111|
+----------
+|11111000|
+----------
+
+Gestiunea memoriei folosind liste inlantuite:
+---------------------------------------------
+
+Metoda: se foloseste o lista simplu inlantuita cu segmentele alocate si cele
+ libere;fiecare intrare din lista contine tipul segmentului (spatiu/proces),
+  adresa de inceput, dimensiunea, un pointer spre urmatoarea intrare.
+
+Exemplu - aceeasi memorie de mai sus, gestionata cu o lista (P = proces,
+ H = spatiu liber (hole)):
+
+|    A    |xxxxx|     B     |   C   |xxx|     D     |  E  |xxxxx|
+--'-'-'-'-'-'-'-|-'-'-'-'-'-'-'-|-'-'-'-'-'-'-'-|-'-'-'-'-'-'-'-|
+                8              16              24              32
+
+    ----------,  ----------,  ----------,  ----------,
+    |P| 0| 5|--->|H| 5| 3|--->|P| 8| 6|--->|P|14| 4|-----
+    ----------'  ----------'  ----------'  ----------'  |
+                                                        |
+---------------------------------------------------------
+|
+|   ----------,  ----------,  ----------,  -----------
+--->|H|18| 2|--->|P|20| 6|--->|P|26| 3|--->|H|29| 3|-|
+    ----------'  ----------'  ----------'  -----------
+
+ Daca lista este sortata dupa adresa segmentului (ca in exemplul de mai sus)
+putem elimina usor o intrare cand un proces se termina sau este trecut pe
+disc;  procesul are 2 vecini, care pot fi procese sau spatii (avem deci 4
+posibilitati); daca vecinul stang, drept sau ambii sunt spatii, putem
+transforma 2, 2, resp. 3 intrari intr-un singura; deoarece procesul care
+se termina/trece pe disc are in intrarea sa din tabela de procese un pointer
+catre elementul din lista care ii corespunde, este mai convenabil sa folosim
+o lista dublu (nu simplu) inlantuita pentru a putea gasi mai usor vecinii.
+
+ Cand procesele si spatiile sunt pastrate intr-o lista sortata dupa adresa,
+putem folosi mai multi algoritmi de alocarea a memoriei pentru un proces nou
+sau reincarcat de pe disc (presupunem ca gestionarul de memorie stie cata
+memorie trebuie alocata):
+- PRIMA POTRIVIRE (FIRST FIT): gestionarul de memorie cauta in lista de
+ segmente primul spatiu suficient de mare; daca procesul nu se potriveste
+ exact, spatiul este spart in doua parti, una pentru proces, alta ramane
+ libera;
+  este un algoritm rapid;
+- URMATOAREA POTRIVIRE (NEXT FIT): ca la "first fit", dar orice noua cautare
+ incepe de unde s-a finalizat precedenta (se memoreaza pozitia unde a fost
+ gasit spatiul la cautarea precedenta), nu de la inceputul listei;
+  este un pic mai lenta ca "first fit" (simularile lui Bays, 1977);
+- CEA MAI BUNA POTRIVIRE (BEST FIT): cauta in toata lista cel mai mic spatiu
+ suficient de mare;
+  este mai lenta ca "first fit" (deoarece se cauta in toata lista) si duce
+ la mai mult spatiu irosit ca "first fit" si "next fit", deoarece are
+ tendinta de a genera multe spatii mici neutilizabile; "first fit" genereaza
+ in medie spatii mai mari;
+- CEA MAI PROASTA POTRIVIRE (WORST FIT):  cauta in toata lista cel mai mare
+ spatiu (pentru ca spatiul liber rezultat sa fie cat mai util, nu ca la
+ "best fit");
+  simularile au aratat ca nici aceasta metoda nu este prea buna;
+
+ Toti cei patru algoritmi pot fi imbunanatiti prin folosirea a doua liste
+separate pentru procese si spatii, iar algoritmii vor prelucra doar lista
+de spatii; atunci creste viteza de alocare, dar creste complexitatea si
+scade viteza de dezalocare, deoarece un segment eliberat trebuie trecut din
+lista proceselor in cea a spatiilor.
+
+ Daca se folosesc doua liste (pentru procese si spatii), lista spatiilor
+poate fi sortata dupa dimensiune - atunci "best fit" este mai rapid, la fel
+de rapid ca "first fit", iar "next fit" nu are rost.
+
+ Alta optimizare cand se folosesc doua liste (pentru procese si spatii) este
+sa nu existe o structura de date separata pentru a memora spatiile si sa se
+foloseasca chiar spatiile: in fiecare spatiu, primul cuvant va stoca
+dimensiunea spatiului iar al doilea cuvant adresa spatiului urmator.
+
+ Un algoritm de alocare este POTRIVIREA RAPIDA (QUICK FIT), care mentine
+liste separate pentru cele mai uzuale dimensiuni cerute (o lista a spatiilor
+de 4K, o lista a spatiilor de 8K, etc.); un spatiu de alta dimensiune poate
+fi pus intr-una din aceste liste (cu spatii de dimensiuni apropiate) sau
+intr-o lista cu spatii de dimensiuni neobisnuite.
+ Cu acest algoritm gasirea unui spatiu corespunzator este extrem de rapida,
+dar, ca si la alti algoritmi ce sorteaza lista dupa dimensiunea spatiilor,
+gasirea vecinilor unui proces terminat sau trecut pe disc este costisitoare
+(iar daca nu se face unirea, memoria se fragmenteaza rapid intr-un numar
+mare de spatii mici in care nu se potriveste nici un proces).
+
+ Un algoritm care creaza un compromis intre partitionarea statica si cea
+dinamica a memoriei este METODA CAMARAZILOR (BUDDY MEMORY ALLOCATION):
+- se pot aloca doar blocuri de dimensiune 2^k, unde L <= k <= U, pentru
+ niste L, U fixati; in general 2^U este dimensiunea intregii memorii
+ disponibile;
+  pentru fiecare L <= k <= U, se mentine o lista a blocurilor libere de
+ dimensiune 2^k; initial singura lista nevida este lista U, continand
+ un singur bloc (toata memoria);
+- cand vine o cerere a unui bloc liber de dimensiune i, se determina k a.i.
+ 2^(k-1) < i <= 2^k; daca lista k este nevida, se aloca primul bloc din
+ ea; altfel se determina cel mai mic r a.i. k < r <= U si lista r este
+ nevida, apoi: primul bloc din lista r se imparte in doua si jumatatile
+ (BUDDIES) se introduc in lista r-1, apoi primul bloc din lista r-1 se
+ imparte in doua si jumatatile se introduc in lista r-2, etc. pana se
+ introduc blocuri in lista k; apoi se aloca primul bloc din lista k;
+- cand se elibereaza blocul de dimensiune 2^k detinut de un proces, acest
+ bloc este trecut in lista k unde, daca buddy-ul blocului respectiv este
+ liber, se uneste cu el si se trece in lista k+1 unde, daca buddy-ul
+ blocului respectiv este liber, se uneste cu el si se trece in lista k+2,
+ etc. pana "buddy"-ul nu e liber sau se ajunge in lista U.
+
+Exemplu folosind un bloc initial de 1 MB:
+
+           -----------------------------------------------------------------
+initial    |                                                               |
+           |                              1 M                              |
+           -----------------------------------------------------------------
+A cere  65K|    A  |       |               |                               |
+(ia 128K)  |   128 |  128  |      256      |              512              |
+           -----------------------------------------------------------------
+B cere 200K|    A  |       |       B       |                               |
+(ia 256K)  |   128 |  128  |      256      |              512              |
+           -----------------------------------------------------------------
+C cere  35K|    A  |  C|   |       B       |                               |
+(ia  64K)  |   128 | 64| 64|      256      |              512              |
+           -----------------------------------------------------------------
+D cere 200K|    A  |  C|   |       B       |       D       |               |
+(ia 256K)  |   128 | 64| 64|      256      |      256      |      256      |
+           -----------------------------------------------------------------
+Eliberare B|    A  |  C|   |               |       D       |               |
+           |   128 | 64| 64|      256      |      256      |      256      |
+           -----------------------------------------------------------------
+Eliberare A|       |  C|   |               |       D       |               |
+           |   128 | 64| 64|      256      |      256      |      256      |
+           -----------------------------------------------------------------
+E cere 120K|    E  |  C|   |               |       D       |               |
+(ia 128K)  |   128 | 64| 64|      256      |      256      |      256      |
+           -----------------------------------------------------------------
+Eliberare C|    E  |       |               |       D       |               |
+           |   128 |  128  |      256      |      256      |      256      |
+           -----------------------------------------------------------------
+Eliberare E|                               |       D       |               |
+           |              512              |      256      |      256      |
+           -----------------------------------------------------------------
+Eliberare D|                                                               |
+           |                              1 M                              |
+           -----------------------------------------------------------------
+
+3. Memoria virtuala:
+--------------------
+
+ Cand au aparut prima data programe prea mari ca sa incapa in memoria
+disponibila, solutia gasita a fost impartirea programului pe STRATURI
+(OVERLAYS); stratul 0 rula la inceput, apoi cand se termina putea apela alt
+strat; straturile erau tinute pe disc si incarcate/descarcate in memorie
+dinamic de catre SO dupa nevoi; uneori puteau exista mai multe straturi in
+memorie simultan; sarcina de a imparti programul in straturi revenea insa
+programatorului.
+ Ulterior si aceasta munca a fost trecuta la SO, prin metoda numita MEMORIE
+VIRTUALA (VIRTUAL MEMORY): daca dimensiunea totala a codului, datelor si
+stivei procesului depasesc memoria disponibila, SO tine partile de program
+curent folosite in memorie si restul pe disc, iar cand este nevoie diverse
+parti ale procesului sunt incarcate/descarcate in memorie.
+ Memoria virtuala poate fi folosita si intr-un sistem cu multiprogramare,
+iar atunci in memorie vor fi simultan parti din mai multe procese.
+
+ Adresele generate prin program sunt ADRESE VIRTUALE si formeaza SPATIUL
+VIRTUAL DE ADRESE al procesului respectiv; in sistemele fara memorie
+virtuala, adresa virtuala este pusa direct pe magistrala memoriei pentru a
+accesa memoria fizica la adresa respectiva; cand este folosita memoria
+virtuala, adresa virtuala este mapata de MMU (Memory Management Unit -
+Unitatea de gestiune a memoriei) intr-o adresa fizica si aceasta este pusa
+pe magistrala de adrese:
+
+    Pachet de
+    procesoare
+    --------------     --------------     --------------
+    | ---------- |     |            |     |            |
+    | |Procesor| |     |            |     |            |
+    | ---------- |     |            |     |            |
+    |     |      |     |  Memorie   |     |  Controler |
+    |     V      |     |            |     |  de disuri |
+    | ---------- |     |            |     |            |
+    | |  MMU   | |     |            |     |            |
+    | ---------- |     |            |     |            |
+    ------|-------     --------------     --------------
+          V                  |                  |
+    ---------------------------------------------------- Magistrala
+
+Paginarea:
+----------
+
+ Cele mai multe sisteme de memorie virtuala folosesc o tehnica numita
+PAGINARE (PAGING): spatiul virtual de adrese este impartit in unitati numite
+PAGINI (PAGES); unitatile corespunzatoare din memoria fizica s.n. CADRE DE
+PAGINA (PAGE FRAMES); paginile si cadrele de pagina au aceeasi dimensiune;
+unele pagini sunt pe disc, altele in memorie (in cadrele de pagina); se
+mentine o tabela de corespondenta intre pagini si cadrele unde se afla ele
+(TABELA DE PAGINI - PAGE TABLE); pentru fiecare pagina, tabela retine si un
+BIT DE PREZENTA/ABSENTA (PRESENT/ABSENT BIT) care spune daca pagina este sau
+nu in memorie; cand programul genereaza o adresa virtuala, dintr-o pagina
+virtuala, MMU o mapeaza in adresa fizica din cadrul ce contine pagina
+respectiva (folosind tabela de pagini); daca pagina nu este prezenta in
+memorie, MMU comunica procesorului sa genereze un trap catre SO (acest trap
+s.n. DEFECT DE PAGINA - PAGE FAULT), care, daca nu mai sunt cadre libere,
+salveaza pe disc cadrul cel mai putin folosit, apoi incarca in loc pagina
+ceruta, schimba asocierile din tabela de pagini si reia instructiunea care a
+generat trap-ul (intre timp procesul a fost blocat); transferurile intre
+memorie si disc sunt intotdeauna multipli de pagina.
+
+ Exemplu: consideram o  masina in care se pot genera adrese (virtuale) pe
+16 biti, dar care are doar 32K memorie fizica (adresele fizice sunt pe 15
+biti); astfel, un proces poate avea max. 64K dar nu incape intotdeauna in
+memorie; consideram un asemenea proces; o copie a procesului trebuie sa
+existe pe disc, iar parti din el (pagini) vor fi incarcate in memorie cand
+este nevoie de ele; presupunem ca paginile au 4k si avem urmatoarea
+corespondenta in tabela de pagini (numarul paginii este indice in tabela
+de pagina) (am marcat cu "xxx" una din corespondente):
+
+  spatiul
+de adrese            
+ virtuale  pagini    
+          -----      
+ 50K-64K  |   |1111 = 15    
+          -----      
+ 56K-60K  |   |1110 = 14    
+          -----      
+ 52K-56K  |   |1101 = 13    
+          -----      
+ 48K-52K  |   |1100 = 12    
+          -----      
+ 44K-48K  |   |1011 = 11          bit
+          -----                   prezent/absent
+ 40K-44K  |   |1010 = 10             |
+          -----               tabela |
+ 36K-40K  |   |1001 =  9      de     |
+          -----               pagini V          cadre de  adrese fizice
+ 32K-36K  |   |1000 =  8      ---------           pagina  de memorie
+          -----             15| 000 |0|            ----- 
+ 28K-32K  |   |0111 =  7    14| 000 |0|     111 = 7|   |  28K-32K
+          -----             13| 000 |0|            -----
+ 24K-28K  |   |0110 =  6    12| 000 |0|     110 = 6|xxx|  24K-28K 
+          -----             11| 111 |1|            -----
+ 20K-24K  |   |0101 =  5    10| 000 |0|     101 = 5|   |  20K-24K 
+          -----              9| 101 |1|            -----
+ 16K-20K  |   |0100 =  4     8| 000 |0|     100 = 4|   |  16K-20K
+          -----              7| 000 |0|            -----
+ 12K-16K  |   |0011 =  3     6| 000 |0|     011 = 3|   |  12K-16K
+          -----              5| 011 |1|            -----
+  8K-12K  |xxx|0010 =  2     4| 100 |1|     010 = 2|   |   8K- 12K
+          -----              3| 000 |1|            -----
+  4K- 8K  |   |0001 =  1     2| 110 |1|     001 = 1|   |   4K- 8K
+          -----              1| 001 |1|            -----
+  0K- 4K  |   |0000 =  0     0| 010 |1|     000 = 0|   |   0K- 4K
+          -----               ---------            -----
+
+atunci la executie putem avea:
+
+MOV REG, [8196]   (instructiune executata in program)
+  |
+  V
+0010000000000100  (adresa virtuala generata = 8196)
+----
+  |  (MMU mapeaza primii 4 biti 0010 (= 2 = numarul paginii
+  |    = intrarea in tabela de pagini) in 3 biti 110 (= 6 = numarul
+  |    cadrului), conform tabelei de pagini); 000000000100 este offset-ul
+  |    in cadrul paginii; 
+  V
+110000000000100   (adresa fizica de iesire = 24580)
+---
+
+ Tabela de pagini implementeaza o functie matematica, ce are ca argument
+numarul paginii virtuale si ca rezultat numarul cadrului de pagina.
+
+Tabelele de pagini:
+-------------------
+
+ Legat de tabelele de pagini apar urmatoarele probleme:
+- tabelele de pagini pot fi foarte mari - de ex. daca paginile au 4K, pentru
+ un spatiu virtual de 32 biti vor fi necesare 2^20 pagini; in plus, fiecare
+ proces necesita propria sa tabela de pagini (are propriul sau spatiu
+ virtual de adrese);
+- asocierea numar pagina - numar cadru trebuie sa fie rapida; intr-adevar,
+ asocierile adresa virtuala - adresa fizica se fac la fiecare accesare a
+ memoriei; daca o instructiune are mai multi operanzi, pentru fiecare
+ se face o asociere.
+
+ Cateva moduri de alcatuire a tabelelor de pagini:
+- mentinerea unei sigure tabele de pagini, constituita intr-un vector de
+ registri hardware rapizi (cate unul pentru fiecare pagina), indexat dupa
+ numarul paginii; cand un proces este pornit, SO incarca registrii cu tabela
+ de pagini a procesului, care este luata dintr-o copie aflata in memoria
+ principala (daca procesul este in memorie); in timpul executiei procesului
+ nu mai sunt necesare accese suplimentare la memorie pentru tabela de pagini
+ (ea este in registri);
+  avantaje: simplitate, lipsa acceselor la memorie pentru determinarea
+ asocierilor;
+  dezavantaje: cost ridicat daca tabela e mare, performanta diminuata
+ deoarece intreaga tabela de pagini este incarcata la fiecare schimbare de
+ context;
+- intreaga tabela de pagini este mentinuta in memorie; daca exista mai multe
+ procese, pentru fiecare se retine o tabela; se foloseste un singur registru
+ hardware, care indica inceputul tabelei pentru procesul curent; la
+ schimbarea de context se actualizeaza acest registru;
+  dezavantaje: accesarea suplimentara a memoriei pentru fiecare operand de
+ memorie al fiecarei instructiuni executate, pentru a citi elemente din
+ tabela de pagini.
+
+Tabele de pagini pe mai multe niveluri:
+---------------------------------------
+
+ Pentru a evita tabelele foarte mari tinute tot timpul in memorie, unele
+calculatoare folosesc o tabela de pagini pe mai multe niveluri; exista o
+tabela principala, ale carei intrari contin fiecare adresa sau numarul de
+cadru al unei tabele secundare, ale carei intrari contin fiecare adresa
+sau numarul de cadru al unei tabele de nivel trei, etc., intrarile
+tabelelor de pe ultimul nivel contin fiecare numarul de cadru al unei
+pagini; o adresa virtuala este sparta in mai multe campuri, primul fiind un
+index in tabela principala, al doilea un index in tabela secundara gasita cu
+primul index, etc., ultimul camp fiind o deplasare (offset) in cadrul
+paginii; dintre aceste tabele vor fi mentinute in memoria principala doar
+cele care sunt necesare.
+
+ Exemplu: presupunem ca adresele virtuale sunt de 32 biti, impartiti astfel:
+
+          10 biti    10 biti     12 biti
+        |   PT1    |   PT2    | Deplasare  |
+        ------------------------------------
+
+deducem ca spatiul virtual maxim are 4G, este impartit in 2^20 pagini de
+cate 4K, fiecare tabela are 2^10 intrari, tabela de pagini are doua
+niveluri, tabela principala acopera un spatiu virtual de 4G iar fiecare
+tabela secundara cate un spatiu virtual de 4M (0M-4M, 4M-8M, etc.); o
+intrare in tabela principala acopera un spatiu virtual de 4M (cat tabela
+secundara referita de ea), o intrare intr-o tabela secundara acopera un
+spatiu virtual de 4K (anume o pagina);
+ consideram un proces ce necesita 12M, anume: primii 4M virtuali pentru cod,
+urmatorii 4M virtuali pentru date si ultimii 4M virtuali pentru stiva;
+intre date si stiva este un spatiu virtual imens nefolosit de acest proces;
+atunci, la rularea acestui proces, e suficient sa fie mentinute in memorie
+4 tabele: cea principala si cele secundare referite de intrarile 0, 1 si
+1023 (ultima) din tabela principala:
+
+     tabela de pagini -                tabela de pagni -
+     nivelul superior                  nivelul doi
+      ------------
+ 1023 |          |-------------------------------------------->-----------
+      ------------                                        1023 |         |->
+      |xxxxxxxxxx|                                             -----------
+      ------------                                             |         |
+      |xxxxxxxxxx|                                                 ...
+          ...                                                  |         |
+      |xxxxxxxxxx|                                             -----------
+      ------------                                           0 |         |->
+      |xxxxxxxxxx|                                             -----------
+      ------------
+    1 |          |---------------------------->-----------
+      ------------                       1023 |          |->
+    0 |          |------->------------        ------------
+      ------------   1023 |          |->      |          |
+                          ------------            ...
+                          |          |        |          |
+                              ...             ------------
+                          |          |      0 |          |->
+                          ------------        ------------
+                        0 |          |-> catre pagini (in cadre)
+                          ------------
+
+atunci, daca programul genereaza adresa virtuala 0x00403004, adica binar (am
+delimitat prin "|" campurile): 0000 0000 01|00 0000 0011 | 0000 0000 0100,
+rezulta: PT1=1, PT2=3, Deplasare=4, iar MMU foloseste PT1=1 ca index in
+tabela principala, obtine de acolo adresa/numarul de cadru al tabelei
+secundare ce acopera adresele 4M - 8M, apoi foloseste PT2=3 ca index in
+aceasta obtinand numarul cadrului de pagina in care este incarcata pagina
+in care se afla (la deplasarea 4) adresa virtuala 0x00403004; daca tabela
+secundara sau pagina nu se afla in memorie, bitul prezenta/absent din
+intrarea de tabela care o refera este 0, ceea ce va cauza un defect de
+pagina - astfel, daca am fi avut PT1=2, intrucat bitul prezent/absent
+din intrarea 2 a tabelei principale este 0, incercarea de accesare ar fi
+generat un defect de pagina, iar SO detectand ca procesul incearca sa
+acceseze memorie ce nu ii apartine ar fi luat masuri (de ex. in UNIX/Linux
+procesul ar primi semnalul SIGSEGV); pe desen am marcat cu "xxx" intrarile
+cu bitul prezent/absent = 0.
+
+ Sistemul cu 2 niveluri se poate extinde la 3, 4, etc.- mai multe niveluri
+ofera flexibilitate sporita dar creste complexitatea a.i. pentru mai mult de
+3 niveluri sistemul nu e rentabil. De asemenea, campurile PT1, PT2, ... pot
+fi de dimensiuni diferite.
+
+Structura unei intrari dintr-o tabela de pagini:
+------------------------------------------------
+
+ O intrare intr-o tabela de pagini contine urmatoarele tipuri de informatii
+(modul de implementare depinde de masina; de multe ori dimensiune intrarii
+este de 32 biti):
+
+  ----------------------------------------------------------------
+  |     |   |   |   |           |   | Numarul cadrului de pagina |
+  ----------------------------------------------------------------
+          |   |   |       |       |
+          |   |   |       |       V
+          |   |   |       V      Prezent/absent
+          |   |   V       Protectie
+          |   V   Modificat
+          V   Accesat
+          Memorie intermediara dezactivata
+
+NUMARUL CADRULUI DE PAGINA: este cel mai important, l-am discutat.
+Bitul PREZENT/ABSENT: l-am discutat; daca este 1, atunci pagina asociata
+  este in memorie, in cadrul al carui numar este in ultimul camp al intrarii
+  (intrarea este valida, se poate folosi); daca este 0, atunci pagina
+  asociata nu este in memorie, iar accesarea acestei intrari va provoca un
+  defect de pagina.
+Bitii de PROTECTIE: arata tipul de acces permis; poate fi un bit (0 = acces
+  permis pentru citire si scriere, 1 = acces permis doar pentru citire), sau
+  trei biti (cate unul pentru drepturile de citire, scriere, resp. executie
+  a continutului paginii).
+Bitul MODIFCAT (sau bitul MURDAR (DIRTY BIT)): cand se scrie in pagina
+  asociata din cadru, acest bit devine 1 (i.e. pagina este marcata ca
+  MURDARA (DIRTY)); daca SO doreste refolosirea cadrului paginii si ea este
+  murdara, mai intai salveaza pagina pe disc (altfel continutul cadrului
+  poate fi abandonat, deoarece copia de pe disc este inca valida);
+Bitul ACCESAT: devine 1 oricand pagina asociata din cadru este accesata, fie
+  pentru citire fie pentru scriere; daca se genereaza un defect de pagina
+  iar SO doreste sa elibereze un cadru pentru a incarca pagina solicitata,
+  va prefera un cadru neaccesat (i.e. cu bitul accesat = 0).
+Bitul MEMORIE INTERMEDIARA DEZACTIVATA: permite dezactivarea caching-ului
+  (i.e. mentinerii in memoria tampon a unei copii) pentru pagina asociata;
+  facilitatea este importanta pentru paginile corespunzatoare unor registri
+  din diverse dispozitive; daca SO asteapta intr-o bucla ca un dispozitiv de
+  I/O sa raspunda la o comanda ce tocmai a fost data, este esential ca la
+  fiecare iteratie hardware-ul sa livreze valoarea de la dispozitiv, nu o
+  copie veche din memoria tampon (cache); masinile care au un spatiu separat
+  pentru I/O in loc de asocierea echipamentelor de I/O cu adrese de memorie
+  nu au nevoie de acest bit.
+
+ Adresa pe disc unde se gaseste o pagina atunci cand nu se afla in memorie
+nu este retinuta in tabela de pagini (tabela de pagini retine doar
+informatia necesara hardware-ului pentru a transforma adresele virtuale in
+adrese fizice) ci in tabele interne ale SO (fiind folosite la tratarea
+defectelor de pagina); hardware-ul nu are nevoie de aceasta informatie.
+
+Memorii tampon pentru translatare:
+----------------------------------
+
+ Din cauza dimensiunilor mari, tabelele de pagini sunt mentinute de obicei
+in memorie, nu intr-un vector de registri (cum am spus ca se mai poate),
+ceea ce diminueaza performanta, deoarece se face o accesarea suplimentara a
+memoriei pentru fiecare operand de memorie al fiecarei instructiuni
+executate (pentru a citi elemente din tabela de pagini).
+ Plecand de la observatia ca majoritatea programelor fac accese multe la
+pagini putine (si nu invers), o solutie de imbunatatire a performantei este
+echiparea calculatoarelor cu un dispozitiv fizic numit TLB (Translation
+Lookaside Buffer - Memorie Tampon pentru Translatare) localizat in MMU, care
+retine un numar de corespondente numar de pagina - numar de cadru, iar
+aceste asocieri vor putea fi facute fara a consulta tabela de pagini din
+memorie. TLB contine un numar mic de intrari (de regula <= 64), care se pot
+pune in corespondenta cu intrari din tabela de pagini.
+
+ De exemplu, un proces poate genera urmatorul continut al TLB (presupunem ca
+are 8 intrari):
+
+  | Valid | Pagina virtuala | Modificat | Protectie | Cadru de pagina |
+  ---------------------------------------------------------------------
+  |   1   |      140        |     1     |  RW       |       31        |
+  ---------------------------------------------------------------------
+  |   1   |       20        |     0     |  R X      |       38        |
+  ---------------------------------------------------------------------
+  |   1   |      130        |     1     |  RW       |       29        |
+  ---------------------------------------------------------------------
+  |   1   |      129        |     1     |  RW       |       62        |
+  ---------------------------------------------------------------------
+  |   1   |       19        |     0     |  R X      |       50        |
+  ---------------------------------------------------------------------
+  |   1   |       21        |     0     |  R X      |       45        |
+  ---------------------------------------------------------------------
+  |   1   |      860        |     1     |  RW       |       14        |
+  ---------------------------------------------------------------------
+  |   1   |      861        |     1     |  RW       |       75        |
+  ---------------------------------------------------------------------
+
+bitul VALID spune daca intrarea respectiva din TLB este folosita sau nu;
+bitul MODIFICAT si bitii de PROTECTIE au aceeasi semnificatie ca intr-o
+ intrare din tabela de pagini;
+in acest exemplu, codul programului executat de proces este in paginile 19,
+20, 21 (care deci necesita drept de citire si executie), datele in paginile
+129, 130, 140, stiva in paginile 860, 861.
+
+Cum este folosit TLB:
+- atunci cand o adresa virtuala este trimisa MMU pentru translatare,
+ hardware-ul verifica daca numarul paginii in care se afla adresa virtuala
+ este in TLB, prin compararea simultana (paralela) cu toate intrarile;
+- daca da, se verifica daca bitii de protectie permit efectuarea respectivei
+ instructiuni (de ex. daca instructiunea incearca sa scrie in pagina,
+ trebuie sa fie prezent dreptul de scriere, altfel se genereaza o eroare de
+ protectie), apoi se face translatarea; in plus, daca instructiunea modifica
+ pagina, se seteaza bitul "modificat";
+- daca nu, MMU interogheaza tabela de pagini din memorie si incarca
+ intrarea respectiva din tabela intr-o intrare din TLB; din vechiul
+ continut al intrarii din TLB se copiaza inapoi in tabela de pagini
+ doar bitul "modificat", restul informatiilor sunt deja acolo.
+Astfel, daca un proces acceseaza de mai multe ori o aceeasi pagina, la prima
+accesare se interogheaza tabela de pagini si se incarca intrarea de acolo in
+TLB, iar la urmatoarele accesari se foloseste doar TLB.
+
+Gestionarea TLB prin program:
+-----------------------------
+
+ Pana acum am presupus ca gestionarea TLB si tratarea erorilor generate de
+TLB este facuta de MMU (SO fiind apelat doar in cazul defectelor de pagina);
+asa se intampla pe masinile vechi; la ora actuala pe multe masini aproape
+intreaga gestiune a paginilor se efectueaza software: elementele TLB sunt
+incarcate explicit de SO, iar daca un element nu este gasit in TLB, in loc
+ca MMU sa caute in tabela de pagini va fi generata o eroare de TLB (TLB
+MISS) si problema este trecuta la SO - el gaseste pagina, inlocuieste un
+element din TLB cu altul din tabela de pagini, apoi reia instructiunea care
+a generat eroarea, toate acestea cu cat mai putine instructiuni, deoarece
+erorile de TLB apar mai des ca defectele de pagina.
+ Daca TLB este mare (64 intrari) pentru a reduce rata erorilor de TLB,
+gestionarea software a TLB se dovedeste a fi acceptabila.
+ Avantajul este un MMU mai simplu, care elibereaza o parte considerabila a
+suprafetei chip-ului procesorului, ce poate fi folosita pentru cache sau
+alte facilitati.
+
+ Cand se gestioneaza software TLB performanta se poate imbunatati astfel:
+- pentru a reduce numarul de erori de TLB, SO poate anticipa ce pagini vor
+ fi accesate in viitor si sa preincarce elementele respective in TLB;
+  de ex. cand un proces client trimite un mesaj unui proces server pe
+ aceeasi masina, este probabil ca serverul sa ruleze in curand; cunoscand
+ aceasta, SO in timp ce executa apelul "send" verifica si daca paginile
+ utilizate de server sunt inregistrate in TLB, inainte deci ca executia
+ serverului sa genereze erori de TLB;
+- procesarea unei erori de TLB presupune accesarea tabelei de pagini si
+ efectuarea unei operatii de indexare pentru localizarea intrarii cerute;
+ cand aceasta se face software iar pagina ce contine tabela de pagini nu
+ figureaza in TLB, se genereaza erori de TLB suplimentare; pentru a reduce
+ aceste erori, un numar mare de intrari TLB (ex. 4K) se pot mentine software
+ intr-o memorie tampon aflata intr-o locatie fixa a carei pagina este
+ pastrata mereu in TLB - SO va reduce numarul de erori de TLB daca va
+ verifica mai intai aceasta memorie tampon.
+
+Tabele inversate de pagini:
+---------------------------
+
+ Tabelele de pagini descrise pana acum au cate o intrare pentru fiecare
+pagina; de aceea pot fi foarte mari daca spatiul virtual este mare; de ex.
+daca adresele virtuale sunt pe 64 biti iar o pagina are 4K, tabela de pagini
+trebuie sa aibe 2^52 intrari, iar daca o intrare are 8 octeti, tabela de
+pagini va avea 2^55 octeti (aprox. 30 mil. G).
+
+ In cazul spatiilor virtuale mari, se poate folosi in loc o TABELA INVERSATA
+DE PAGINI (INVERTED PAGE TABLE), ce are cate o intrare pentru fiecare cadru
+de pagina; o intrare va contine informatii despre ce (proces, pagina) se
+afla in cadru; astfel, daca adresele virtuale sunt pe 64 biti, paginile au
+cate 4K iar memoria fizica are 256M, tabela inversata de pagini va avea
+doar 2^16 intrari.
+ Translatarea adreselor virtuale in adrese fizice este insa mai dificila,
+deoarece daca un proces n acceseaza pagina p, nu se mai poate folosi p ca
+index in tabela ci trebuie sa se caute in toata tabela o pereche (n,p); mai
+mult, cautarea se face la fiecare acces la memorie, nu numai in cazul
+defectelor de pagina.
+ Solutia acestei probleme consta in folosirea TLB; daca TLB retine referinte
+la toate paginile des folosite, translatarea va fi facuta la fel de repede
+ca in cazul tabelelor de pagini. Totusi, la o eroare de TLB, trebuie facuta
+o cautare software in tabela inversata de pagini; un mod eficient de a face
+cautarea este cu ajutorul unei tabele de dispersie (hash table) avand drept
+cheie numarul paginii virtuale; o intrare in tabela de dispersie initiaza un
+lant de perechi (numar de pagina, numar de cadru) corespunzatoare paginilor
+curent aflate in memorie si care au o aceeasi valoare de dispersie (hash);
+atunci, daca tabela de dispersie are atatea intrari cate cadre de pagina are
+masina, lantul mediu va avea un singur element, asocierea facandu-se astfel
+foarte rapid; odata gasit numarul cadrului, noua pereche (virtual, fizic)
+este introdusa in TLB.
+ Exemplu (am presupus ca masina are 2^16 cadre si tot atatea intrari are
+tabela de dispersie):
+
+               tabela de dispersie
+               -------------------     -----------     -----------
+        2^16-1 |                 |-----|    |    |-----|    |    |
+               -------------------     -----------     -----------
+               |                 |
+                      ...
+               |                 |
+               -------------------     -----------
+               |                 |-----|    |    |
+               -------------------     -----------
+               |                 |
+               -------------------     -----------
+             0 |                 |-----|    |    |
+             ^ -------------------     -----------
+             |                           ^     ^
+           indexare dupa valoarea        |     |
+           de dispersie (hash)           |    cadru de pagina
+           obtinuta din numarul         pagina virtuala
+           pagini virtuale
+
+4. Algoritmi de inlocuire a paginilor:
+--------------------------------------
+
+ Cand apare un defect de pagina, SO trebuie uneori sa scoata o pagina din
+memorie pentru a aduce alta in locul ei; daca pagina respectiva a fost
+modificata cat timp a fost in memorie, continutul ei trebuie scris mai intai
+pe disc (altfel pagina adusa in memorie poate suprascrie direct pagina
+scoasa). Criteriul de alegere al paginii scoase influienteaza performanta -
+de ex. daca se scoate o pagina des folosita, probabil ca foarte repede va
+trebui incarcata inapoi, rezultand o incarcare suplimentara inutila a
+sistemului. In continuare prezentam cei mai importanti algoritmi de
+inlocuire a paginilor.
+
+ Notam ca problema inlocuirii paginilor apare si in alte situatii - de ex.
+unui server web care pastreaza intr-o memorie tampon paginile des accesate,
+cand i se cere o pagina noua iar memoria tampon este plina, trebuie sa
+scoata o pagina din memorie pentru a o incarca pe cea noua; criteriile de
+alegere a paginii scoase sunt similare, doar ca aici ea nu mai trebuie
+salvata pe disc (nu s-a modificat).
+
+Algoritmul optim de inlocuire a paginilor:
+------------------------------------------
+
+Algoritmul OPTIM: fiecarei pagini i se pune o eticheta cu numarul de
+ instructiuni care vor fi executate inainte ca pagina sa fie accesata;
+ la nevoie, se va scoate pagina cu eticheta cea mai mare.
+
+Dezavantaj: nu se poate implementa - cand apare un defect de pagina, SO nu
+ are cum sa stie ce si cate instructiuni se vor executa in continuare (mai
+ ales ca depind de proces si de datele cu care lucreaza acesta).
+
+ Totusi, daca programul este rulat pe un simulator si se urmaresc accesarile
+de pagini, se poate implementa un algoritm optim pentru 'a doua' rulare,
+utilizand informatiile colectate la 'prima rulare'; astfel se poate compara
+performanta unui algoritm realizabil cu cea a algoritmului optim - atunci,
+daca de ex. rezulta o performanta cu 1 % mai mica decat cea a algoritmului
+optim, cautarea in continuare a unui algoritm mai bun nu ar putea imbunatati
+performanta decat cu max. 1 % (deci e inutil sa-l cautam); oricum insa,
+simularea si deci algoritmul optim se fac doar pentru un program si date
+fixate.
+
+Algoritmul de inlocuire a paginilor care nu au fost accesate recent (NRU):
+--------------------------------------------------------------------------
+
+ Am vazut ca pentru fiecare pagina se retin (in intrarea corespunzatoare din
+tabela de pagini) bitii R si M, care devin 1 cand pagina este accesata (i.e.
+citita sau scrisa), resp. modificata (i.e. scrisa); acesti biti trebuie
+actualizati la fiecare acces la memorie, deci trebuie sa fie setati de
+hardware; odata ce un bit a fost setat la 1, el ramane 1 pana SO il
+reseteaza la 0 pe cale software.
+ Daca hardware-ul nu are acesti biti, ei pot fi simulati astfel: cand un
+proces este lansat, toate intrarile sale din tabela de pagini sunt marcate
+ca neaflate in memorie; cand o pagina este accesata, se genereaza un defect
+de pagina; atunci SO seteaza bitul R (in tabele sale interne), modifica
+intrarea din tabela de pagini sa indice pagina corecta, cu modul "read
+only", si restarteaza instructiunea; daca ulterior in pagina se scrie,
+se genereaza un alt defect de pagina, iar SO va seta bitul M si va schimba
+modul de acces al paginii in "read/write".
+ Bitii R, M pot fi folositi la un algoritm de inlocuire a paginilor astfel:
+
+Algoritmul NRU (Not Recently Used - Nefolosit Recent): cand un proces este
+ lansat, pentru toate paginile sale ambii biti sunt pusi pe 0 de SO;
+ periodic (de ex. la fiecare intrerupere de ceas) R este pus pe 0, pentru a
+ distinge paginile recent accesate de celelalte; la un defect de pagina, SO
+ inspecteaza toate paginile si le imparte in 4 clase:
+    clasa 0: ne accesate, ne modificate;
+    clasa 1: ne accesate,    modificate;
+    clasa 2:    accesate, ne modificate
+    clasa 3:    accesate,    modificate;
+ desi clasa 1 pare imposibila, acest caz poate aparea cand unei pagini din
+ clasa 3 ii este pus R=0 in urma unei intreruperi de ceas; pentru eliminare,
+ algoritmul NRU alege aleator una din clasa nevida cu numar minim.
+
+Obs: intreruperea de ceas nu modifica M, deoarece acesta arata daca pagina
+ trebuie scrisa pe disc sau nu; notam totodata ca NRU presupune ca paginile
+ accesate sunt mai importante decat cele modificate.
+
+Algoritmul este usor de inteles si implementat si ofera o performanta destul
+de buna.
+
+Algoritmul de inlocuire a paginilor primul intrat - primul iesit (FIFO):
+------------------------------------------------------------------------
+
+Algoritmul FIFO: SO mentine o coada cu paginile din memorie, sortata in
+ ordinea in care paginile au fost incarcate in memorie; la un defect de
+ pagina se scoate (daca e nevoie) pagina din varful cozii (e cea mai veche),
+ iar noua pagina incarcata se adauga la baza cozii (e cea mai noua).
+
+Avantaje/dezavantaje: supraincarcarea este mica, dar pot fi scoase si pagini
+ accesate frecvent (doar ca au fost accesate prima data mai demult); de
+ aceea algoritmul se aplica rar in aceasta forma.
+
+Algoritmul celei de a doua sanse (SECOND CHANCE):
+-------------------------------------------------
+
+Algoritmul A DOUA SANSA (SECOND CHANCE): ca la FIFO, dar cand trebuie
+ eliminata o pagina mai intai se testeaza bitul R al paginii din varful
+ cozii (cea mai veche); daca este 0, pagina este scoasa; daca este 1, pagina
+ este reintrodusa la baza cozii cu R=0 (ca si cand ar fi o pagina noua), si
+ se testeaza urmatoarea pagina ajunsa in varful cozii (algoritmul se termina
+ intotdeauna, deoarece chiar daca in coada toate paginile aveau R=1, dupa
+ reintroducerea in coada capata R=0).
+
+Astfel, fata de FIFO se rezolva problema eliminarii paginilor des accesate
+ (doar ca au fost accesate prima data mai demult); este un algoritm destul
+ de bun.
+
+Inlocuirea paginilor dupa ceas (CLOCK PAGE REPLACEMENT ALGORITHM):
+------------------------------------------------------------------
+
+Algoritmul (CLOCK PAGE REPLACEMENT): seamana cu SECOND CHANCE, dar paginile
+ din memorie sunt mentinute intr-o lista circulara (asemanatoare unui
+ cadran de ceas), iar un indicator pointeaza catre pagina cea mai veche;
+ cand apare un defect de pagina si trebuie scoasa o pagina, atunci: cat timp
+ pagina pointata de indicator are R=1, i se pune R=0 iar indicatorul
+ avanseaza o pozitie; cand indicatorul pointeaza o pagina cu R=0, aceasta
+ este eliminata, iar indicatorul avanseaza la urmatoarea; noua pagina este
+ introdusa inaintea indicatorului.
+
+Algoritmul difera de SECOND CHANCE doar ca implementare, reusind insa sa
+ elimine mutatul paginilor in lista.
+
+Algoritmul de inlocuire a paginilor cel mai demult folosite (LRU):
+------------------------------------------------------------------
+
+O buna aproximatie a algoritmului optim pleaca de la presupunerea ca pagini
+ intens folosite de ultimile instructiuni vor fi intens folosite si ulterior
+ iar pagini ce nu au fost accesate de mult timp nu vor fi accesate inca mult
+ timp:
+
+Algoritmul LRU (LAST RECENTLY USED - CEL MAI DEMULT FOLOSITE): cand apare un
+ defect de pagina si trebuie eliminata o pagina, se elimina pagina cea
+ nefolosita de cel mai mult timp.
+
+Algoritmul este foarte performant, dar scump de implementat.
+
+O varianta de implementare, care presupune un hardware specializat, este:
+- hardware-ul este inzestrat cu un registru contor special C de 64 biti,
+ care este incrementat automat dupa fiecare instructiune;
+- fiecare intrare in tabela de pagini are un camp suplimentar capabil sa
+ retina valoarea contorului; dupa fiecare acces la memorie, valoarea
+ curenta a contorului este stocata in intrarea corespunzatoare paginii
+ accesate;
+- cand apare un defect de pagina, SO examineaza toate valorile contorului
+ stocate in tabela de pagini pentru a o determina pe cea mai mica, iar
+ pagina corespunzatoare va fi cea mai demult folosita.
+
+O alta varianta de implementare hardware este:
+- daca masina are n cadre de pagina, hardware-ul care implementeaza LRU are
+ o matrice cu n x n biti, avand initial toti valoarea 0;
+- cand este accesat cadrul k, hardware-ul face 1 toti bitii din linia k,
+ apoi face 0 toti bitii din coloana k;
+in orice moment, linia care are valoarea binara cea mai mica este corespunde
+cadrului cel mai demult folosit, cea cu valoarea binara urmatoare corespunde
+urmatorului cadru cel mai demult folosit, etc.
+
+Exemplu: consideram 4 cadre (numerotate 0-3) si accese la ele in ordinea:
+
+0 1 2 3 2 1 0 3 2 3
+
+ele conduc in ordine la urmatoarele matrici (dupa primul acces avem prima
+matrice, dupa al doilea acces a doua matrice, etc.):
+
+  0123   0123   0123   0123   0123   0123   0123   0123   0123   0123
+ -----  -----  -----  -----  -----  -----  -----  -----  -----  -----
+0|0111 0|0011 0|0001 0|0000 0|0000 0|0000 0|0111 0|0110 0|0100 0|0100
+1|0000 1|1011 1|1001 1|1000 1|1000 1|1011 1|0011 1|0010 1|0000 1|0000
+2|0000 2|0000 2|1101 2|1100 2|1101 2|1001 2|0001 2|0000 2|1101 2|1100
+3|0000 3|0000 3|0000 3|1110 3|1100 3|1000 3|0000 3|1110 3|1100 3|1110
+
+Notam ca facand o linie 1, ea capata valoarea cea mai mare, si facand o
+coloana 0, din toate liniile se scade o aceeasi valoare, a.i. ordinea
+valorilor liniilor se pastreaza.
+
+Obs: comparand LRU cu NRU, constatam ca LRU tine evidenta accesarilor
+  paginilor pe o perioada scurta de timp, in timp ce NRU ia in consideratie
+  doar accesarile din ultimul interval de ceas.
+
+Simularea LRU prin software (NFU si AGING):
+-------------------------------------------
+
+ Deoarece nu multe masini au echipamentul necesar implementarii hardware al
+LRU, se pune problema implementarii software - o solutie este:
+
+Algoritmul NFU (NOT FREQUENTLY USED - NEFOLOSIT DES): fiecare pagina are
+ asociat un contor controlat software, avand initial valoarea 0; la fiecare
+ intrerupere de ceas, SO analizeaza toate paginile din memorie si pentru
+ fiecare bitul R este adunat la contor (astfel, contorul arata cat de des
+ este accesata pagina); daca la un defect de pagina trebuie eliminata o
+ pagina, se elimina cea cu contorul minim.
+
+Dezavantaj: NFU nu uita niciodata nimic - de ex. daca o pagina a fost
+ accesata intens mai demult, chiar daca ulterior nu a mai fost accesata,
+ contorul ei ramane mare (ca si cand ar fi fost accesata frecvent).
+
+O mica modificare a NFU permite insa o simulare destul de buna a LRU:
+ 
+Algoritmul AGING (IMBATRANIRE): fata de NFU, contoarele sunt mai intai
+ shiftate la dreapta cu 1, apoi se aduna R la bitul din stanga (nu din
+ dreapta); ca si inainte, daca la un defect de pagina trebuie eliminata o
+ pagina, se elimina cea cu contorul minim.
+
+Exemplu: consideram paginile 0-5 si tacturile de ceas 0-4; presupunem ca
+ dupa fiecare din tacti bitii R sunt cei din linia de sus; atunci dupa
+ fiecare tact contoarele asociate paginilor sunt cele din coloana
+ corespunzatoare tactului (am presupus contoarele pe 8 biti):
+
+ bitii R pt.    bitii R pt.    bitii R pt.    bitii R pt.    bitii R pt.
+ paginile 0-5,  paginile 0-5,  paginile 0-5,  paginile 0-5,  paginile 0-5, 
+ tactul 0       tactul 1       tactul 2       tactul 3       tactul 4
+ -------------  -------------  -------------  -------------  -------------
+ |1|0|1|0|1|1|  |1|1|0|0|1|0|  |1|1|0|1|0|1|  |1|0|0|0|1|0|  |0|1|1|0|0|0|
+ -------------  -------------  -------------  -------------  -------------
+pagina
+  ------------   ------------   ------------   ------------   ------------
+0 | 10000000 |   | 11000000 |   | 11100000 |   | 11110000 |   | 01111000 |
+  ------------   ------------   ------------   ------------   ------------
+1 | 00000000 |   | 10000000 |   | 11000000 |   | 01100000 |   | 10110000 |
+  ------------   ------------   ------------   ------------   ------------
+2 | 10000000 |   | 01000000 |   | 00100000 |   | 00010000 |   | 10001000 |
+  ------------   ------------   ------------   ------------   ------------
+3 | 00000000 |   | 00000000 |   | 10000000 |   | 01000000 |   | 00100000 |
+  ------------   ------------   ------------   ------------   ------------
+4 | 10000000 |   | 11000000 |   | 01100000 |   | 10110000 |   | 01011000 |
+  ------------   ------------   ------------   ------------   ------------
+5 | 10000000 |   | 01000000 |   | 10100000 |   | 01010000 |   | 00101000 |
+  ------------   ------------   ------------   ------------   ------------
+
+de ex. dupa tactul 0 bitii R ai paginilor 0-5 sunt 101011 (adica intre
+tactul 0 si tactul 1 au fost accesate paginile 0,2,4,5); atunci contoarele
+paginilor 0-5 (care inainte erau toate 00000000), dupa shiftarea la dreapta
+cu 1 si adaugarea in stanga a lui R corespunzator, devin: 10000000 (pentru
+pagina 0), 00000000 (pentru pagina 1), etc.
+
+Diferente fata de LRU (ilustrate pe exemplul de mai sus):
+- dupa tactul 4, candidate la eliminare sunt paginile 3 si 5; ele au fost
+ accesate ultima data la un acelasi tact (2), dar nu se stie in ce ordine
+ (pentru fiecare interval AGING pastreaza doar un bit); LRU ar sti;
+ aici vom elimina pagina 3, deoarece pagina 5 a mai fost accesata si mai
+ devreme;
+- daca contoarele au n biti, ele pot retine situatia ultimilor n tacti
+ (dupa care bitii se pierd prin shiftare); de ex. mai sus daca avem doua
+ pagini cu contorul 00000000, vom elimina una din ele la intamplare, dar
+ una poate a fost accesata acum 9 tacti, iar cealalta acum 1000 tacti;
+ LRU poate retine situatia pe o perioada mai lunga; in practica insa cei 8
+ biti sunt suficienti: daca tactul are 20 milisec iar o pagina nu a fost
+ accesata de 8*20=160 milisec, probabil ca nu este importanta.
+
+Alg. inlocuirii paginilor din setul de lucru (WORKING SET PAGE REPLACEMENT):
+----------------------------------------------------------------------------
+
+ Un proces se poate lansa cu nici una din paginile sale in memorie; pe
+masura ce procesul isi va accesa paginile, se vor genera defecte de pagina,
+care vor duce la incarcarea acestora in memorie; dupa un timp, procesul va
+avea majoritatea paginilor de care are nevoie in memorie si astfel defectele
+de pagina vor fi mai rare; aceasta strategie s.n. PAGINARE LA CERERE (DEMAND
+PAGING) (i.e. paginile sunt incarcate cand sunt cerute, nu in avans). Daca
+insa un program isi citeste sistematic toate paginile din spatiul de adrese
+se vor genera sistematic multe defecte de pagina, deoarece ele nu incap
+toate in memorie.
+ Majoritatea proceselor insa nu lucreaza asa ci prezinta o LOCALIZARE
+SPATIALA (LOCALITY OF REFERENCE), adica in orice faza a executiei acceseaza
+doar o mica parte a paginilor sale. Setul de pagini cu care lucreaza
+procesul la un moment dat s.n. SETUL DE LUCRU (WORKING SET). Daca intreg
+setul de lucru este in memorie, procesul ruleaza fara multe defecte de
+pagina; daca memoria este prea mica pentru a pastra tot setul, procesul va
+genera multe defecte de pagina si va rula foarte incet. Despre un proces
+care genereaza defecte de pagina la fiecare cateva instructiuni se zice ca
+BLOCHEAZA PRIN SUPRAINCARCARE (THRASHING) sistemul.
+ Multe sisteme de paginare urmaresc care este setul de lucru al fiecarui
+proces si asigura ca acesta este deja in memorie inainte de a lasa procesul
+sa ruleze. Aceasta abordare s.n. MODELUL SETULUI DE LUCRU (WORKING SET
+MODEL); incarcarea paginilor inainte de a lasa procesul sa ruleze s.n.
+PREPAGINARE (PREPAGING). Notam ca setul de lucru se schimba in timp.
+
+ Pentru un proces dat, in orice moment t exista o multime w(k,t) a paginilor
+utilizate de cele mai recente k accese la memorie ale sale - aceasta este
+setul de lucru; functia w(k,t) este monoton nedescrescatoare in k; faptul ca
+majoritatea programelor isi acceseaza aleator un set restrans de pagini dar
+acest set se modifica lent in timp, se traduce prin faptul ca cresterea lui
+w(k,t) este din ce in ce mai lenta, tinzand spre o limita finita (procesul
+nu poate accesa mai multe pagini decat are in spatiul de adrese); urmatorul
+grafic ilustreaza dimensiunea setului de lucru ca functie de k:
+
+             ^             *************
+             |       ******      
+    |w(k,t)| |    ***
+             |  **
+             | *
+             |*
+             ---------------------------> k
+
+din cauza comportamentului asimptotic, continutul setului de lucru nu este
+sensibil la valoarea aleasa pentru k, mai exact exista un interval mare al
+valorilor lui k pentru care setul de lucru nu se schimba.
+
+ Deoarece setul de lucru variaza putin in timp, se poate anticipa ce pagini
+vor fi necesare la reincarcarea unui proces pe baza setului de lucru
+existent in momentul intreruperii acestuia - deci SO trebuie sa urmareasca
+ce pagini sunt in setul de lucru; pentru determinarea setului de lucru, se
+fixeaza un k si atunci, dupa fiecare acces la memorie, setul de pagini
+utilizate  de cele mai recente k accese este unic determinat; algoritmul de
+inlocuire a paginilor spune ca atunci cand este necesara inlocuirea unei
+pagini, va fi aleasa una din afara setului de lucru.
+
+ Implementarea bazata pe definitia setului de lucru de mai sus (adica
+multimea paginilor utilizate de cele mai recente k accese la memorie) este
+costisitor de implementat. O aproximare care in practica este la fel de
+buna dar mult mai usor de implementat este inlocuirea ultimilor k accesari
+ale memoriei cu timpul de procesor consumat (el este in general mai scurt
+decat timpul fizic consumat, deoarece o parte din timpul fizic este consumat
+de SO sau de alte procese, in timp ce procesul curent este blocat). Timpul
+procesor consumat de proces de la inceputul executiei s.n. TIMP VIRTUAL
+CURENT (CURRENT VIRTUAL TIME). In aceasta aproximatie setul de lucru al unui
+proces este multimea paginilor accesate de el in ultimele T secunde de timp
+virtual. Cu aceasta definitie vom lucra in cele ce urmeaza.
+
+ Algoritmul de inlocuire a paginilor bazat pe SETUL DE LUCRU:
+- sunt luate in consideratie doar paginile din memorie; pentru fiecare se
+ retine, in intrarea corespunzatoare din tabela de pagini, (cel putin)
+ momentul aproximativ al ultimei utilizari (time of last use) si bitul R;
+  presupunem ca bitii R,M sunt modificati de hardware iar o intrerupere
+ periodica de ceas pune pe cale software bitii R pe 0;
+- la un defect de pagina, tabela de pagini este scanata pentru a gasi o
+ pagina potrivita pentru eliminare; pentru fiecare intrare a tabelei:
+  * daca R=1 (deci pagina a fost accesata in ultimul interval de ceas),
+   atunci timpul virtual curent este scris in campul 'time of last use' al
+   intrarii (indicand ca pagina era in folosinta cand a aparut defectul de
+   pagina) - aceasta pagina nu este candidata la eliminare;
+  * daca R=0 si varsta (diferenta intre timpul virtual curent si cel stocat
+   in campul 'time of last use' al intrarii) este > T, pagina nu mai este in
+   setul de lucru si este candidata la eliminare;
+  * daca R=0 si varsta este <= T, pagina este inca in setul de lucru, dar se
+   compara campul 'time of last use' cu un minim curent, pentru a se retine
+   pagina cea mai veche (cu 'time of last use' cel mai mic);
+- in final, pentru eliminare, se alege o pagina candidat; daca nu exista,
+  se alege o pagina cu R=0 si 'time of last use' minim; daca nu exista
+  pagini cu R=0, se alege o pagina la intamplare (de preferat cu M=0).
+
+Nota personala: daca actualizarea campurilor 'time of last use' se face doar
+ cand apar defecte de pagina, algoritmul nu manevreaza date realiste; de ex.
+ o pagina accesata des, dar nu in acelasi interval de ceas cu un defect de
+ pagina, ramane cu 'time of last use' mic; actualizarea campurilor 'time of
+ last use' ar trebui sa se faca in unul din urmatoarele moduri:
+ - hardware, la fiecare accesare a memoriei;
+ - software, la o intrerupere periodica de ceas; de exemplu cu ocazia
+  intreruperii care actualizeaza bitii R.
+
+Algoritmul ceas si set de lucru (WSClock Page Replacement Algorithm):
+---------------------------------------------------------------------
+
+ Algoritmul setului de lucru este incomod deoarece la fiecare defect de
+pagina trebuie scanata toata tabela de pagini. O varianta imbunatatita, care
+este simplu de implementat si performanta este:
+
+Algoritmul WSClock (ceas si set de lucru):
+- se foloseste o lista circulara de cadre de pagina, asemanatoare unui
+ cadran de ceas, iar un indicator pointeaza catre o pagina curenta; fiecare
+ element al listei contine campul 'time of last use' si bitii R,M;
+  initial lista este vida, pe masura ce sunt incarcate pagini in memorie,
+ ele se introduc in lista circulara;
+- la fiecare defect de pagina, este examinata pagina pointata de indicator;
+  daca pagina are R=1, atunci i se pune R=0, indicatorul este avansat la
+ urmatoarea pagina iar testul se reia; pana la urma se gaseste una cu R=0;
+  daca pagina are R=0, varsta > T si M=0, ea poate fi inlocuita, noua pagina
+ se pune in locul ei (cu R=1), iar indicatorul este avansat;
+  daca pagina are R=0, varsta > T si M=1, ea nu poate fi inlocuita imediat,
+ deoarece trebuie mai intai salvata pe disc; pentru a evita comutarea de
+ proces, pagina este planificata la salvare dar indicatorul este avansat la
+ urmatoarea pagina si testul se reia (poate se gaseste o pagina veche si
+ cu M=0); pentru a limita traficul la disc, se poate impune o limita a
+ numarului de pagini ce se pot planifica la salvare;
+  daca pagina are R=0 si varsta <= T, ea este in setul de lucru iar
+ indicatorul este avansat la urmatoarea pagina si testul se reia;
+- daca indicatorul a parcurs complet cadranul si inca nu a gasit o pagina
+ ce poate fi inlocuita, sunt posibile cazurile:
+  * cel putin o pagina a fost planificata la salvare; in acest caz
+   indicatorul continua sa se miste, deoarece pana la urma o salvare sa va
+   finaliza iar pagina respectiva va deveni 'curata' (intrand in categoria
+   R=0, varsta>T, M=0);
+  * nici o pagina nu a fost planificata la salvare; atunci toate paginile
+   sunt in setul de lucru; in acest caz se alege pentru inlocuire o pagina
+   cu M=0 (locatia ei se poate retine in timpul rotirii indicatorului), sau
+   pagina curenta (daca toate au M=1) (ea este si salvata pe disc).
+
+Prezentam un rezumat al algoritmilor de inlocuire a paginilor:
+
+Algoritm                  |  Comentariu
+----------------------------------------------------------------------------
+Optimal                   |Neimplementabil, dar util ca referinta
+----------------------------------------------------------------------------
+NRU (Not Recently Used)   |Usor de implementat, dar grosier
+----------------------------------------------------------------------------
+FIFO (First-In First-Out) |Poate elimina pagini importante, deci e o alegere
+                          |  proasta
+----------------------------------------------------------------------------
+Second chance             |Imbunatateste semnificativ performanta FIFO
+----------------------------------------------------------------------------
+Clock                     |Realist, aceeasi performanta ca second chance, 
+                          |  dar algoritmul e putin mai rapid
+----------------------------------------------------------------------------
+LRU (Least Recently Used) |Excelent, dar nu se poate implementa fara un
+                          |  hardware special
+----------------------------------------------------------------------------
+NFU (Not Frequently Used) |Aproximatie grosiera a LRU, nu e foarte bun
+----------------------------------------------------------------------------
+Ageing                    |Aproximatie buna a LRU, eficient, este o alegere
+                          |  buna
+----------------------------------------------------------------------------
+Working set               |Performanta rezonabila, dar cam costisitor de
+                          | implementat
+----------------------------------------------------------------------------
+WSClock                   |Varianta a Working set cu o buna performanta
+                          | si eficient de implementat
+----------------------------------------------------------------------------
+
+Per total, cei mai buni algoritmi sunt Ageing si WSClock - ei ofera o buna
+performanta de paginare si pot fi implementati eficient. Ei sunt printre
+cei mai importanti in practica.
+
+5. Modelarea algoritmilor de inlocuire a paginilor:
+---------------------------------------------------
+
+ Prezentam cateva abordari teoretice privind modelarea algoritmilor de
+inlocuire a paginilor:
+
+Anomalia lui Belady:
+--------------------
+
+ Intuitiv, s-ar parea ca cu cat memoria are mai multe cadre de pagina, cu
+atat procesul genereaza mai putine defecte de pagina. Belady (1969) a gasit
+un contraexemplu in care FIFO cauzeaza mai multe defecte de pagina cu patru
+cadre decat cu trei; aceasta situatie s.n. ANOMALIA LUI BELADY (BELADY'S
+ANOMALY).
+
+ Exemplu: consideram un proces cu 5 pagini virtuale numerotate 0-5 si
+accesate in ordinea: 0 1 2 3 0 1 4 0 1 2 3 4; atunci, aplicand algoritmul
+FIFO cu 3 cadre de pagina rezulta 9 defecte de pagina, in timp ce cu 4 cadre
+de pagina rezulta 10 defecte de pagina (deasupra am notat paginile accesate,
+iar cu "P" am notat defectele de pagina):
+
+       Toate cadrele de pagina sunt initial goale
+                         |
+                         V   0   1   2   3   0   1   4   0   1   2   3   4
+                       -----------------------------------------------------
+Pagina cea mai recenta |   | 0 | 1 | 2 | 3 | 0 | 1 | 4 | 4 | 4 | 2 | 3 | 3 |
+                       -----------------------------------------------------
+                       |   |   | 0 | 1 | 2 | 3 | 0 | 1 | 1 | 1 | 4 | 2 | 2 |
+                       -----------------------------------------------------
+  Pagina cea mai veche |   |   |   | 0 | 1 | 2 | 3 | 0 | 0 | 0 | 1 | 4 | 4 |
+                       -----------------------------------------------------
+                             P   P   P   P   P   P   P           P   P
+                                               9 defecte
+
+                             0   1   2   3   0   1   4   0   1   2   3   4
+                       -----------------------------------------------------
+Pagina cea mai recenta |   | 0 | 1 | 2 | 3 | 3 | 3 | 4 | 0 | 1 | 2 | 3 | 4 |
+                       -----------------------------------------------------
+                       |   |   | 0 | 1 | 2 | 2 | 2 | 3 | 4 | 0 | 1 | 2 | 3 |
+                       -----------------------------------------------------
+                       |   |   |   | 0 | 1 | 1 | 1 | 2 | 3 | 4 | 0 | 1 | 2 |
+                       -----------------------------------------------------
+  Pagina cea mai veche |   |   |   |   | 0 | 0 | 0 | 1 | 2 | 3 | 4 | 0 | 1 |
+                       -----------------------------------------------------
+                             P   P   P   P           P   P   P   P   P   P
+                                              10 defecte
+ 
+Algoritmi pe stiva:
+-------------------
+
+ Conceptual, accesul la memorie al unui proces poate fi descris prin lista
+ordonata a numerelor de pagina pe care le cere - s.n. SIR DE REFERINTE
+(REFERENCE STRING). Pentru simplitate, in aceasta sectiune vom considera o
+masina cu un singur proces, a.i. exista un singur sir de referinte,
+determinist (in cazul multiprogramarii ar trebui avuta in vedere
+intercalarea sirurilor de referinte ale proceselor)
+
+ Un sistem de paginare(paging system) poate fi caracterizat prin 3 elemente:
+- sirul de referinte al procesului in executie;
+- algoritmul de inlocuire al paginilor;
+- numarul m de cadre de pagina disponibile in memorie.
+
+ Consideram un interpretor abstract, constand din urmatoarele:
+- un vector M ce urmareste starea memoriei si avand atatea elemente cate
+ pagini virtuale are procesul, anume n;
+  vectorul este divizat intr-o parte superioara cu m elemente, care retine
+ numerele paginilor aflate in memorie la momentul curent, si o parte
+ inferioara cu n-m elemente, care retine numerele paginilor ce au fost
+ referite la un moment dat, dar la momentul curent sunt pe disc;
+- initial M este vid; ulterior el evolueaza, pe masura ce sunt efectuate
+ accesele din sirul de referinte al procesului;
+- la fiecare acces din sirul de referinte:
+  * daca trebuie eliminata o pagina din partea superioara (adica apare un
+   defect de pagina iar partea superioara este plina), aceasta este aleasa
+   conform algoritmului de inlocuire folosit;
+  * pagina accesata este inserata/adusa la inceputul partii superioare (daca
+   era deja in partea superioara, doar este mutata pe prima pozitie); in
+   acest scop, paginile aflate de la prima pozitie si pana inaintea primului
+   gol sunt translatate in prealabil cu o pozitie mai jos;
+  * paginile mutate in partea inferioara sunt inserate tot pe prima pozitie,
+   intr-o maniera similara.
+
+Exemplu: n=8 (paginile sunt numerotate 0-7), m=4, algoritmul LRU,
+  sirul de referinte: 0 2 1 3 5 4 6 3 7 4 7 3 3 5 5 3 1 1 1 7 1 3 4 1:
+
+Sir de referinte:  0 2 1 3 5 4 6 3 7 4 7 3 3 5 5 3 1 1 1 7 1 3 4 1
+                ---------------------------------------------------
+                | |0|2|1|3|5|4|6|3|7|4|7|3|3|5|5|3|1|1|1|7|1|3|4|1|
+                ---------------------------------------------------
+                | | |0|2|1|3|5|4|6|3|7|4|7|7|3|3|5|3|3|3|1|7|1|3|4|
+                ---------------------------------------------------
+                | | | |0|2|1|3|5|4|6|3|3|4|4|7|7|7|5|5|5|3|3|7|1|3|
+                ---------------------------------------------------
+                | | | | |0|2|1|3|5|4|6|6|6|6|4|4|4|7|7|7|5|5|5|7|7|
+                ===================================================
+                | | | | | |0|2|1|1|5|5|5|5|5|6|6|6|4|4|4|4|4|4|5|5|
+                ---------------------------------------------------
+                | | | | | | |0|2|2|1|1|1|1|1|1|1|1|6|6|6|6|6|6|6|6|
+                ---------------------------------------------------
+                | | | | | | | |0|0|2|2|2|2|2|2|2|2|2|2|2|2|2|2|2|2|
+                ---------------------------------------------------
+                | | | | | | | | | |0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|
+                ---------------------------------------------------
+Defecte de pagina: P P P P P P P   P         P     P           P
+Sirul distantelor: i i i i i i i 4 i 4 2 3 1 5 1 2 6 1 1 4 2 3 5 3
+ (a se vedea mai jos)
+
+ Astfel, M reflecta aplicarea algoritmului (se poate folosi acelasi model si
+pentru alti algoritmi).
+ Notam M(m,r) = setul de pagini aflate in partea superioara a lui M, in
+cazul unei memorii cu m cadre, dupa r referiri la memorie. 
+ Algoritmii cu proprietatea "M(m,r) inclus in M(m+1,r)" pentru orice m,r,
+s.n. ALGORITMI PE STIVA (STACK ALGORITHMS); acesti algoritmi nu sufera de
+anomalia lui Belady.
+ De ex. algoritmii LRU, OPTIM, etc. au proprietatea de mai sus, FIFO nu.
+
+Sirul distantelor:
+------------------
+
+ Pentru algoritmii pe siva este adesea mai convenabil sa reprezentam sirul
+de referinte intr-o forma mai abstracta: o referire va fi desemnata prin
+distanta la care se afla pagina referita fata de varful stivei M inainte de
+referire (poate fi infinit, notat "i", daca pagina nu se afla in M); in
+exemplul de mai sus am notat la sfarsit SIRUL DISTANTELOR (DISTANCE STRING).
+
+ Sirul distantelor depinde atat de sirul de referinte cat si de algoritmul
+de paginare; proprietatile statistice ale sirului distantelor au un impact
+major asupra performantei algoritmului.
+ De exemplu, consideram functia densitatii de probabilitate (probability
+density function) pentru doua siruri de distante ipotetice (sau graficele
+frecventelor valorilor de la 1 la n in sir):
+
+        |
+        |       k
+        |<------------>|                |
+   P(d) |      ***     |            P(d)|
+        |    **   **   |                |****
+        |   *       *  |                |    *****
+        |  *         **|                |         ******
+        | *            *****            |               ******
+        |*                  *******     |                     *****
+        ---------------------------     ---------------------------
+         1                        n      1                        n
+
+in primul caz, majoritatea distantelor sunt in intervalul 1,...,k, si astfel
+cu o memorie de k cadre vor aparea putine defecte de pagina; in al doilea
+caz referintele sunt asa de dispersate incat singurul mod de a evita
+numarul mare de defecte de pagina ar fi sa avem o memorie cu atatea cadre
+cate pagini (adica n).
+
+Predictia ratei de defecte de pagina:
+-------------------------------------
+
+ Sirul distantelor poate fi folosit la predictia numarului de defecte de
+pagina ce vor avea loc cu memorii de diverse marimi.
+ Practic, se face o trecere prin sirul distantelor si, din informatia
+adunata, se anticipeaza cate defecte de pagina va avea procesul in memorii
+cu 1, ..., n cadre de pagina, unde n = numarul de pagini virtuale in spatiul
+de adrese al procesului.
+
+ Pentru orice k = 1,...,i (deci inclusiv i='infinit'), notam:
+
+ Ck = numarul de aparitii ale lui k in sirul distantelor
+            n
+ Fk = Ci + suma  Cj
+           j=k+1
+
+ Atunci Fm reprezinta numarul defectelor de pagina care vor aparea cu
+sirul distantelor dat si m cadre de pagina (in modelul folosit mai inainte,
+apare defect de pagina atunci cand se acceseaza o pagina neaflata in
+jumatatea superioara a vectorului M, adica o pagina cu distanta >= m+1).
+
+ Pentru exemplul de mai inainte, cand aveam n=8, m=4, si sirul distantelor:
+i i i i i i i 4 i 4 2 3 1 5 1 2 6 1 1 4 2 3 5 3, obtinem vectorii C, F:
+
+   ------       -------
+   |C1=4|       |F1=19|<-- C2+C3+C4+...+Ci
+   ------       -------
+   |C2=2|       |F2=17|<-- C3+C4+C5+...+Ci
+   ------       -------
+   |C3=1|       |F3=16|<-- C4+C5+C6+...+Ci
+   ------       -------
+   |C4=4|       |F4=12|
+   ------       -------
+   |C5=2|       |F5=10|<-- nr. de defecte de pagina cu 5 cadre
+   ------       -------
+   |C6=2|<-.    |F6=10|
+   ------  |    -------
+   |C7=1|  |    |F7=8 |
+   ------  |    -------
+   |Ci=8|  |    |F8=8 |
+   ------  |    -------
+           '--- 6 apare de 2 ori in sirul distantelor
+
+Atunci, de ex. faptul ca F1=20 inseamna ca daca memoria are doar 1 cadru de
+pagina, cele 24 referinte din sir vor provoca 20 defecte de pagina.
+
+ Modelul se poate folosi si la alte predictii.
+
+6. Aspecte de proiectare a sistemelor de paginare:
+--------------------------------------------------
+
+Politici de alocare locale sau globale:
+---------------------------------------
+
+ Cand un proces genereaza un defect de pagina si trebuie inlocuita o pagina,
+se pune problema daca pagina eliminata va fi aleasa dintre cele alocate
+procesului respectiv (algoritm LOCAL de inlocuire a paginilor) sau dintre
+toate paginile din memorie, indiferent de procesul detinator (algoritm
+GLOBAL de inlocuire a paginilor).
+ Algoritmii locali aloca fiecarui proces o portiune fixa de memorie, cei
+globali aloca dinamic cadre de pagina intre procesele gata de rulare (astfel
+numarul de cadre alocate fiecarui proces variaza in timp).
+ 
+ In general algoritmii globali sunt mai buni, mai ales daca dimensiunea
+setului de lucru variaza pe parcursul rularii procesului; in cazul unui
+algoritm local, daca setul creste apare BLOCAREA PRIN SUPRAINCARCARE
+(TRASHING), chiar daca exista suficiente cadre de pagina libere, iar daca
+setul scade, se iroseste memorie.
+
+ In cazul unui algoritm global, sistemul trebuie sa decida in permanenta
+cate cadre aloca fiecarui proces; metode:
+- monitorizarea dimensiunii setului de lucru in functie de BITII DE VARSTA
+ (AGING BITS), dar aceasta dimensiune se poate schimba in microsecunde, in
+ timp ce bitii de varsta reprezinta o masura grosiera intinsa pe mai multe
+ cicluri de ceas;
+- folosirea unui algoritm de alocare a cadrelor catre procese - de ex.
+ fiecarui proces sa i se aloce un numar initial de cadre proportional cu
+ dimensiunea lui, rezervand si niste cadre libere pentru eventualele defecte
+ de pagina; nr. minim de cadre alocate unui proces nu poate fi prea mic,
+ deoarece de ex. o instructiune cu doi operanzi poate necesita 6 pagini
+ prezente simultan in memorie pentru a se putea executa, daca atat ea cat
+ si operanzii sai traverseaza limitele paginii;
+
+ In cazul unui algoritm global, fiecare proces poate primi un numar initial
+de pagini proportional cu dimensiunea sa, apoi acest numar va fi actualizat
+dinamic; pentru administrarea alocarii se poate folosi algoritmul PPF
+(PAGE FAULT FREQUENCY - FRECVENTA DEFECTELOR  DE PAGINA), care spune cand
+trebuie crescuta sau diminuata alocarea de pagini pentru un proces (nu spune
+si care pagini trebuie inlocuite la un defect), in baza ipotezei ca rata
+defectelor scade odata cu cresterea numarului de pagini alocate, ex:
+
+ defecte de pagina   ^*
+ pe secunda (se poate| **
+ masura direct, luand|---*--------------- rata prea mare, 
+ eventual o medie:   |    **             se aloca mai multe cadre procesului
+     m:=(s+m)/2      |      **
+ unde s=valoarea din |        **
+ secunda curenta, m= |----------*-------- rata prea mica, procesul are prea
+ media curenta       |           **      multa memorie, i se mai pot lua
+                     |             ***   din cadre
+                     ---------------------------------> 
+                      numar ce cadre de pagina alocate
+
+ Unii algoritmi (FIFO, LRU, etc.) pot lucra atat cu politica locala cat si
+cu cea globala, altii (set de lucru, WSClock) doar cu cea locala.
+
+Controlul incarcarii memoriei:
+------------------------------
+
+ Chiar daca folosim alocarea globala si un algoritm bun de inlocuire a
+paginilor, poate aparea blocarea sistemului prin supraincarcare daca de ex.
+reuniunea seturilor de lucru ale proceselor depaseste capacitatea memoriei;
+un simptom: algoritmul PPF indica multe procese care necesita mai multa
+memorie, dar nici unul care necesita mai putina.
+
+ In asemenea situatii se transfera succesiv procese pe disc, distribuind
+cadrele lor de pagina altor procese, pana dispare blocarea; in alegerea
+proceselor transferate pe disc se tine cont de dimensiunea acestora, rata de
+paginare, dar si de gradul de multiprogramare si caracteristicile proceselor
+transferate sau ramase (orientat pe calcule sau I/O); de ex. daca nr. de
+procese din memorie este prea mic, procesorul poate ramane inactiv pe
+perioade lungi.
+
+ Transferarea pe disc este astfel necesara, chiar si cu paginare, dar acum
+este folosita pentru a reduce cererile potentiale de memorie, nu pentru
+a (re)solicita memorie pentru folosire imediata; ea este o reminiscenta a
+planificarii pe 2 niveluri: unele procese sunt transferate pe disc, restul
+sunt ordonate la executie de un planificator.
+
+Dimensiunea paginii:
+--------------------
+
+ Avantajele paginilor mici:
+- segmentele de cod, date, stiva, etc. ale proceselor nu ocupa mereu un nr.
+ intreg de pagini si astfel ramane memorie neocupata la sfarsitul ultimei
+ lor pagini (in medie, jumatate din aceasta); memoria irosita astfel s.n.
+ FRAGMENTARE INTERNA (INTERNAL FRAGMENTATION); daca sunt "n" segmente de
+ memorie iar dimensiunea paginii este "p", memoria irosita prin fragmentarea
+ interna este in medie "np/2"; daca paginile sunt mici, aceasta valoare este
+ de asemenea mica;
+- dimensiunea mare a paginii inseamna existenta mai multor secvente de
+ program neutilizate in memorie; de ex. daca un program are 8 faze
+ secventiale de cate 4KB, atunci cu pagini de 16KB programul ar necesita
+ 16KB alocate in permanenta, in timp ce cu pagini de 4KB ar necesita doar
+ 4KB alocate in permanenta.
+
+ Avantajele paginilor mari:
+- dimensiunea mica a paginii inseamna pagini mai multe si o tabela de pagini
+ mai mare; transferul pe disc al unei pagini mici dureaza aproape la fel de
+ mult ca transferul unei pagini mari (cel mai mult dureaza deplasarea
+ capului magnetic si intarzierea de rotatie a discului), deci in cazul
+ paginilor mari, cand trebuie transferate pagini mai putine, supraincarcarea
+ sistemului este mai mica; de asemenea, pe masinile unde tabela de pagini
+ este (re)incarcata in registri hardware la fiecare comutare de proces,
+ in cazul paginilor mari, cand tabela este mica, timpul de incarcare a
+ acestor registri este mai mic.
+
+ Daca "s" este dimensiunea medie a unui proces, "p" dimensiunea paginii, "e"
+dimensiunea unei intrari in tabela de pagini (in octeti) atunci numarul
+aproximativ de pagini necesare unui proces este "s/p", spatiul ocupat de
+proces in tabela de pagini este "se/p" iar memoria irosita de proces ca
+urmare a fragmentarii interne este aproximativ "p/2"; atunci supraincarcarea
+(overhead) totala cauzata de proces este de aproximativ:
+
+             overhead = (se/p) + (p/2)
+
+cand "p" creste, primul termen scade iar al doilea creste; optimul se obtine
+egaland prima derivata a functiei in "p" cu 0: (-se/(p^2)) + 1/2 = 0;
+rezulta dimensiunea optima a paginii:
+
+             p = sqrt(2se)
+
+pentru s = 1MB si e = 8 octeti, rezulta p = 4KB.
+
+Spatii de adrese separate pentru cod si date:
+---------------------------------------------
+
+ Majoritatea calculatoarelor au un singur spatiu de adrese, ce contine atat
+codul cat si datele; daca acest spatiu este mic, programatorii trebuie sa
+faca eforturi pentru a se incadra in el.
+
+ O solutie, introdusa de PDP-11 (pe 16 biti), consta in a avea spatii de
+adrese separate pentru cod si date, numite SPATIUL I (I-SPACE), resp.
+SPATIUL D (D-SPACE), ambele avand adrese de la 0 la un maximum (ex. 2^16-1
+sau 2^32-1); astfel, spatiul de adrese disponibil se dubleaza; linkeditorul
+trebuie sa stie cand se folosesc spatiile separate I si D, deoarece in acest
+caz atat datele cat si codul sunt alocate de la adresa virtuala 0 (nu sunt
+unul in continuarea celuilalt).
+
+ Intr-un calculator proiectat astfel ambele spatii de adresa pot fi paginate
+independent, cu propriul tabel de pagini; cand hardware-ul trebuie sa preia
+o instructiune, resp. o data, el stie ca trebuie sa foloseasca tabela de
+pagini a spatiului I, resp. D.
+
+Pagini partajate:
+-----------------
+
+ Daca mai multe procese ruleaza acelasi program, e mai eficient sa nu existe
+in memorie mai multe copii ale acelorasi pagini ci ele sa fie partajate.
+Insa, unele pagini (anume cele read-only, ex. cele de cod) pot fi partajate,
+altele (ex. cele de date) nu (sau mai greu).
+
+ Daca exista suport pentru spatii separate I si D, partajarea codului este
+directa, mai multe procese utilizand acelasi tabel de pagini pentru spatiul
+lor I dar tabele diferite pentru spatiile lor D; procesele au in intrarile
+lor din tabela de procese doi pointeri, cate unul spre fiecare tabela de
+pagini, iar planificatorul foloseste acesti pointeri pentru a localiza
+tabelele respective si a seta MMU.
+ Cand nu se folosesc spatii I si D separate partajarea codului este
+posibila, dar mai complicata.
+
+ Cand mai multe procese partajaza acelasi cod, apar diverse probleme; de ex.
+daca procesele A si B ruleaza un acelasi program, atunci:
+- daca planificatorul decide sa scoata A din memorie, eliminarea tuturor
+ paginilor sale (si umplerea cadrelor goale cu un alt program) ar determina
+ pe B sa genereze un nr. mare de defecte de pagina in incercarea de a le
+ aduce inapoi;
+- daca A se termina, trebuie determinate ce pagini ale sale sunt inca in
+ folosinta, pentru a nu fi sterse de pe disc.
+Intrucat scanarea tabelelor de pagini in cautarea paginilor partajate este
+costisitoare, trebuie folosite structuri speciale de date pentru a tine
+evidenta paginilor partajate, mai ales daca se partajaza pagini individuale
+si nu tot tabelul.
+
+ Partajarea datelor este si mai dificila, dar nu imposibila. De ex. in UNIX
+dupa un apel "fork()" procesul parinte si cel copil au propriul tabel de
+pagini, care insa indica initial aceleasi pagini (nu se fac de la inceput
+copii ale paginilor); paginile de date sunt insa marcate read-only; cand
+vreunul din procese incearca o scriere in memorie, incalcarea protectiei
+read-only genereaza un TRAP catre SO, care face o copie a paginii, a.i.
+acum fiecare proces are copia sa proprie, iar ambele copii sunt marcate
+read-write (deci scrierile ulterioare in ele nu mai genereaza TRAP); astfel,
+doar paginile de date care se scrie efectiv sunt copiate; aceasta abordare
+s.n. COPIERE LA SCRIERE (COPY ON WRITE).
+
+Politica de curatare:
+---------------------
+
+ Paginarea functioneaza mai bine cand exista suficiente cadre de pagina
+libere; in acest scop multe sisteme de paginare au un proces de fundal
+numit PAGING DAEMON, care doarme majoritatea timpului dar periodic este
+trezit si inspecteaza memoria, iar daca sunt prea putine cadre libere
+evacueaza din pagini in baza algoritmului de paginare folosit (iar daca
+aceste pagini au fost modificate, ele sunt si scrise pe disc); daca vreuna
+din paginile evacuate este resolicitata inainte de a se suprascrie cadrul
+sau, ea este doar eliminata din randul celor libere (doar ca acum nu mai
+este "dirty"), nu trebuie reincarcata de pe disc; de asemenea, incarcarea
+unei pagini noi intr-un cadru eliberat nu mai presupune salvarea in graba a
+cadrului pe disc, deoarece daemon-ul a asigurat ca toate cadrele libere sunt
+si "curate".
+ Mentinerea in permanenta a unui numar de cadre libere aduce o performanta
+mai buna decat utilizarea intregii memorii si eliberarea unui cadru doar in
+momentul cand este nevoie.
+
+ Un mod de a implementa aceasta politica de curatire este sub forma unui
+cadran de ceas cu doua indicatoare:
+- indicatorul din fata este controlat de paging daemon; daca indica o pagina
+ "murdara", ea este scrisa pe disc iar indicatorul avansat; cand indica o
+ pagina "curata", doar este avansat;
+- indicatorul din spate este controlat de mecanismul de inlocuire a
+ paginilor, ca in algoritmul "CLOCK PAGE REPLACEMENT", doar ca acum sansa
+ ca el sa intalneasca o pagina "curata" esta mai mare.
+
+Interfata memoriei virtuale:
+----------------------------
+
+ In multe sisteme memoria virtuala este transparenta fata de programatori,
+in sensul ca tot ceea ce vad este un spatiu de adrese virtuale mare, pe un
+calculator cu o memorie fizica (mai) mica.
+
+ In unele sisteme mai avansate programatorii au un anumit grad de control
+asupra hartii de memorie, permitand de ex. partajarea unei aceleiasi zone de
+memorie intre mai multe procese - zonele de memorie pot primi nume, aceste
+nume pot fi transmise intre procese, care apoi efectueaza mapari in zona
+respectiva.
+ Daca mai multe procese pot partaja aceleasi pagini, se poate implementa mai
+performant comunicarea dintre ele; de ex. transmiterea de mesaje se poate
+implementa scriind datele in niste pagini, apoi anuland maparea acestora la
+procesul expeditor si mapandu-le la procesul destinatar (altfel, datele ar
+trebui copiate dintr-un spatiu de adrese in altul, cu costuri mari);
+practic, doar numele paginilor se copiaza, nu si datele mesajului.
+
+ O alta tehnica avansata de gestionare a memoriei este MEMORIA PARTAJATA
+DISTRIBUITA (DISTRIBUTED SHARED MEMORY), care permite mai multor procese
+dintr-o retea sa partajeze un set de pagini (privit eventual ca un singur
+spatiu liniar de adresa partajat); daca un proces refera o pagina nemapata,
+el genereaza nu defect de pagina iar gestionarul defectelor de pagina (care
+poate fi in spatiul nucleu sau utilizator) localizeaza masina unde se afla
+aceasta si ii trimite un mesaj prin care ii cere sa anuleze maparea paginii
+si sa o trimita in retea, iar cand soseste este mapata iar instructiunea
+care a genereat defectul este reluata.
+
+
+7. Aspecte de implementare:
+---------------------------
+
+Implicarea SO in paginare:
+--------------------------
+
+ SO are de executat sarcini legate de paginare in patru momente:
+
+- la crearea procesului:
+ * stabileste cat de mari vor fi initial codul si datele;
+ * creaza o tabela de pagini pentru proces; aloca si initializeaza spatiu
+  in memorie pentru aceasta (nu este necesar ca tabela sa fie in memorie
+  cand procesul este transferat (swapat) pe disc, dar trebuie sa fie in
+  memorie cand procesul ruleaza);
+ * aloca spatiu in zona de swap de pe disc (a.i. atunci cand o pagina este
+  transferata pe disc sa aibe unde ajunge) si o initializeaza cu codul si
+  datele programului (a.i. la un defect de pagina, pagina ceruta sa existe
+  initializata pe disc); unele sisteme pagineaza codul direct in fisierul
+  executabil, pentru a economisi spatiu pe disc si timp de initializare;
+ * informatiile despre tabela de pagini si zona de swap de pe disc sunt
+  inregistrate in tabela de procese;
+
+- la fiecare planificare la executie a procesului:
+ * MMU se reseteaza pentru noul proces, iar TLB se goleste;
+ * tabela de pagini a noului proces devine curenta, copiind-o integral, sau
+  doar adresa ei, in registri hardware;
+ * optional, anumite pagini ale procesului pot fi aduse in memorie, pentru
+  a reduce numarul initial de defecte de pagina;
+
+- la generarea unui defect de pagina:
+ * citeste registrii hardware pentru a detrmina adresa virtuala care a
+  generat defectul;
+ * pe baza acestei informatii, determina si localizeaza pagina de pe disc
+  ce trebuie adusa in memorie;
+ * gaseste un cadru de pagina disponibil (eventual evacuand o pagina veche);
+ * incarca noua pagina in cadrul de pagina;
+ * actualizeaza contorul de program a.i. acesta sa indice instructiunea care
+  a generat defectul si sa permita reexecutarea ei;
+
+- la terminarea procesului:
+ * elibereaza tabela de pagini a procesului, paginile sale din memorie si
+  cele de pe disc;
+ * daca anumite pagini (din memorie sau de pe disc) sunt partajate cu alte
+  procese, ele pot fi eliberate doar cand se termina si ultimul proces care
+  le foloseste.
+
+Tratarea defectelor de pagina:
+------------------------------
+
+ In detaliu, la un defect de pagina se executa urmatoarea secventa de pasi:
+1. Hardware-ul genereaza un TRAP catre SO, care salveaza pe stiva contorul
+ de program si alte informatii (pe majoritatea masinilor salveaza si
+ informatii despre starea instructiunii curente, in registri speciali ai
+ procesorului), apoi lanseaza o rutina in assembler;
+2. Rutina in assembler salveaza informatiile relevante si volatile (de ex.
+ registri) spre a nu fi distruse de SO, apoi apeleaza SO ca o procedura;
+3. SO constata aparitia unui defect de pagina si determina pagina virtuala
+ necesara; de regula aceasta informatie se afla intr-un registru hardware,
+ altfel SO obtine valoarea contorului de program, preia instructiunea
+ respectiva si o analizeaza sintactic (pe cale software) afland ce facea
+ cand a aparut defectul de pagina;
+4. Odata aflata adresa virtuala care a generat defectul de pagina, SO
+ verifica daca adresa este valida si daca accesul corespunde protectiei;
+ in caz negativ, procesului i se trimite un semnal (ex. SIGSEGV in UNIX/
+ Linux) sau este terminat; in caz afirmativ SO cauta un cadru de pagina
+ liber, iar daca nu exista, alege o pagina veche spre evacuare, pe baza
+ algoritmului de inlocuire a paginilor;
+5. Daca cadrul de pagina selectat este "murdar", pagina continuta in el este
+ programata pentru transfer pe disc, procesul care a generat efectul este
+ adormit si se face o comutare de context (a.i. sa se ruleze alte procese
+ pana cand pagina este transferata); intre timp cadrul este etichetat drept
+ ocupat, prevenind astfel utilizarea lui in alte scopuri;
+6. Indata ce cadrul este curat (imediat sau dupa ce a fost salvat pe disc),
+ SO cauta pe disc adresa paginii ce trebuie incarcata si programeaza citirea
+ ei de pe disc; procesul care a generat efectul este in continuare adormit,
+ cadrul este in continuare etichetat ca ocupat, si se comuta pe alt proces;
+7. Cand intreruperea de disc semnaleaza ca pagina a fost citita, se
+ actualizeaza tabela de pagini pentru a indica pozitia acestuia, iar cadrul
+ este etichetat ca normal;
+8. Instructiunea care a generat defectul este readusa in starea in care si-a
+ inceput executia iar contorul de program resetat pentru a indica
+ instructiunea respectiva;
+9. Procesul care a generat defectul este planificat pentru executie ca
+ proces curent, apoi SO revine in rutina assembler care l-a apelat;
+10. Rutina assembler reincarca registrii si alte informatii de stare si
+ revine in spatiul utilizator, iar procesul isi continua executia ca si cand
+ nu ar fi aparut nici un defect de pagina.
+
+Salvarea instructiunilor:
+-------------------------
+
+ Am spus ca in cazul unui defect de pagina, dupa incarcarea paginii cerute,
+trebuie restartata instructiunea care a generat defectul; aceasta
+instructiune poate avea mai mai multe componente (codul instructiunii,
+operanzi, etc.) iar contorul de program poate avansa pe parcursul executarii
+ei, a.i. la aparitia defectului e greu de spus de unde incepe instructiunea
+(fie codul instructiunii, fie un operand, putea fi in pagina lipsa si genera
+defectul, a.i. in acel moment contorul de program putea fi la inceputul
+instructiunii sau al uneia din componente).
+ De asemenea, anumite moduri de adresare au ca efect autoincrementarea sau
+autodecrementarea unor registri pe parcursul executarii instructiunii, fie
+inainte, fie dupa referirea memoriei; daca se face inaintea referirii care a
+cauzat defectul,SO trebuie sa o anuleze inainte de a restarta instructiunea.
+
+ Pe anumite masini exista un registru care copiaza automat contorul de
+program inaintea executarii fiecarei instructiuni si uneori un al doilea
+registru care indica ce alti registri au fost autoincrementati/
+autodecrementati si cu cat - pe baza acestor informatii SO poate anula
+efectele partiale ale instructiunii care a generat defectul, inainte de a o
+restarta. Daca masina nu ofera asemenea informatii, SO e f. greu de scris.
+
+
+Blocarea paginilor in memorie:
+------------------------------
+
+ Daca un proces efectueaza un apel sistem de I/O pentru a citi dintr-un
+fisier sau dispozitiv intr-o zona tampon din spatiul sau de adrese, el este
+adormit pana la terminarea operatiei de I/O iar sistemul comuta pe alt
+proces; daca noul proces genereaza un defect de pagina iar algoritmul de
+inlocuire a paginilor este global, este posibil sa fie aleasa spre evacuare
+chiar pagina ce contine zona tampon; daca dispozitivul de I/O efectueaza
+transferul prin DMA catre pagina respectiva (ocolind procesorul - a se vedea
+cursul despre intrari/iesiri), o parte din date vor fi scrise in pagina
+veche (inainte de evacuare), alta parte in pagina noua (dupa incarcare).
+
+ O solutie este blocarea in memorie a paginilor angajate in I/O, a.i. sa nu
+poata fi eliminate; blocarea unei pagini s.n. FIXARE (PINNING) a ei in
+memorie.
+ Alta solutie este efectuarea operatiilor de I/O in zone tampon din spatiul
+nucleu si copierea ulterioara a datelor respective in paginile utilizator.
+
+
+Zona de stocare:
+----------------
+
+ Am spus ca paginile evacuate din memorie de algoritmii de inlocuire a
+paginilor sunt salvate pe disc; prezentam cateva aspecte legate de gestiunea
+spatiului de pe disc dedicat acestui scop:
+
+1. O modalitate simpla de alocare a spatiului pe disc pentru pagini este de
+a avea pe disc o zona speciala de schimb (swap area); la initializarea
+(boot-area) sistemului ea este goala; pe masura ce sunt startate procese, li
+se rezerva portiuni din zona de schimb egale cu imaginea lor, iar pe masura
+ce procesele se termina aceste portiuni se elibereaza; zona de schimb este
+gestionata ca o lista de portiuni libere.
+ Fiecare proces retine in intrarea sa din tabela de procese adresa portiunii
+din zona de schimb care ii revine; iar la evacuarea unui pagini pe disc ea
+este scrisa in aceasta portiune intr-un loc rezultat printr-un calcul simplu
+de adrese (se aduna la adresa portiunii deplasarea paginii in cadrul
+spatiului virtual de adrese).
+ Portiunea din zona de schimb rezervata unui proces trebuie initializata la
+startarea procesului; o varianta este sa se construiasca imaginea procesului
+in aceasta portiune de pe disc, iar cand e nevoie sa se incarce pagini de
+aici in memorie; alta varianta este construirea imaginii procesului in
+memorie, iar cand e nevoie sa se salveze pagini de aici pe disc.
+
+ Problema acestei metode este ca dimensiunea proceselor poate varia in
+timp (mai ales zona de date si stiva pot creste); in acest scop se pot
+rezerva zone de schimb separate pentru cod, date, stiva, a.i. unui proces
+sa i se poata rezerva mai multe portiuni de stocare pentru fiecare din
+aceste componente.
+
+2. O alta modalitate este sa nu alocam initial nimic pe disc; cand o pagina
+trebuie evacuata pe disc (swapped out), i se aloca spatiu pe disc in acel
+moment, iar cand pagina este incarcata inapoi in memorie (swapped in),
+acest spatiu se dezaloca; astfel, o pagina poate ajunge in mai multe locuri
+pe disc de-a lungul existentei sale (nu are o adresa fixa), iar procesele
+aflate complet in memorie nu blocheaza nici un spatiu de schimb de pe disc.
+ 
+ Dezavantajul acestei metode este ca pentru fiecare proces trebuie
+mentinuta in memorie o tabela suplimentara cu adresa fiecarei pagini de pe
+disc.
+
+Separarea politicilor de mecanisme:
+-----------------------------------
+
+ Un instrument important in gestionarea complexitatii oricarui sistem este
+separarea politicilor de mecanisme.
+
+ Acest principiu poate fi aplicat gestionarii memoriei prin implementarea
+unei mari parti a gestionarului de memorie ca proces la nivel utilizator -
+un exemplu este descris in lucrarea lui A.S. Tanenbaum "Sisteme de operare
+moderne" - in acest fel avem o modularitate si o flexibilitate mai mare a
+codului, dar si o supraincarcare mai mare ce rezulta din traversarea
+de multe ori a granitei nucleu-utilizator si transmiterea de mesaje intre
+componente.
+
+
+TODO: Segmentarea
+
+
+8. Biblioteca ANSI C
+
+ Prezentam cateva functii din biblioteca standard C de alocare/dezalocare
+dinamica a memoriei (ele nu depind de sistemul de operare gazda):
+
+#include <stdlib.h>
+
+void *malloc(size_t size);
+  ==> aloca un bloc liber de "size"octeti din heap si returneaza adresa lui;
+      in caz de eroare (ex: daca alocarea nu e posibila, deoarece nu exista
+    in heap un bloc liber de dimensiune "size"), returneaza NULL;
+
+void *calloc(size_t nmemb, size_t size);
+  ==> aloca un bloc liber de "nmemb*size" octeti din heap, il initializeaza
+    cu toti octetii 0 si returneaza adresa lui;
+      in caz de eroare (ex: daca alocarea nu e posibila), returneaza NULL;
+
+void *realloc(void *ptr, size_t size);
+  ==> presupunand ca "ptr" este adresa unui bloc alocat dinamic anterior,
+    ajusteaza dimensiunea acestui bloc la "size" octeti;
+      daca "size" este mai mare decat dimensiunea initiala a blocului
+    respectiv si nu exista suficient spatiu liber in continuarea
+    acestuia, se incearca alocarea unui nou bloc (de la o alta adresa)
+    de "size" octeti iar in caz de succes se copiaza continutul primului
+    bloc la inceputul celui de al doilea bloc si se dezaloca primul bloc;
+      in caz de succes (ajustarea blocului sau alocarea in alta parte a
+    reusit), returneaza adresa blocului final; aceasta adresa va coincide
+    cu "ptr" in caz ca a fost posibila ajustarea sau va fi o alta adresa
+    daca s-a alocat un alt bloc;
+      in caz de esec (nu a fost posibila nici ajustarea nici alocarea in
+    alta parte) returneaza NULL, iar practica arata ca blocul initial nu
+    este dezalocat/alterat;
+      daca "size" = 0, realloc actioneaza ca "free(ptr)" (i.e. blocul
+    initial este dezalocat) si returneaza NULL sau un pointer pasabil lui
+    "free()";
+      daca "ptr" = NULL, realloc actioneaza ca "malloc(size)";
+
+void free(void *ptr);
+  ==> presupunand ca "ptr" este adresa unui bloc alocat dinamic anterior,
+        dezaloca acel bloc;
+      daca "ptr" = NULL, nu se efectueaza nici o operatie;
+
+Observatii:
+- la "realloc()" si "free()", daca "ptr" nu e NULL, el trebuie sa fie o
+ adresa returnata anterior de un apel "malloc()", "calloc()" sau
+ "realloc()", altfel efectul este nedefinit si poate fi imprevizibil
+ (inclusiv "segmentation fault"); la fel, este nedefinit efectul aplicarii
+ lui "free()" de mai multe ori pentru acelsi "ptr";
+- "size_t" este un tip intreg; pentru siguranta/portabilitate se recomanda
+ conversia explicita a tipurilor intregi spre/dinspre acest tip;
+- cand se aloca dinamic un bloc (cu "malloc()", "calloc()", "realloc()")
+ sistemul retine automat intr-o evidenta proprie adresa "a" a blocului si
+ dimensiunea "n" a lui; cand apelam "free()" dand ca parametru adresa "a",
+ acesta cauta automat in evidentele respective "a" si afla de acolo
+ dimensiunea "n" a memoriei ce trebuie dezalocate; de aceea e suficient sa
+ retinem si sa transmitem ca informatie doar adresa respectiva, nu si
+ dimensiunea zonei; la fel, lui "realloc()" sau "free()" nu trebuie sa-i
+ dam ca parametru "ptr" decat o adresa returnata anterior de un "malloc()",
+ "calloc()" sau "realloc()", altfel ea nu va fi gasita in evidentele
+ respective; exemple:
+
+ int *p,*q; p=(int *)malloc(10); q=p; free(q); /* dezaloca 10 octeti */
+
+ int a; free(&a); /* efect imprevizibil */
+
+- in urma dezalocarii unui bloc acesta nu isi pierde automat continutul iar
+ pointerii care il adresau nu devin automat NULL, insa blocul sau o parte
+ din el vor putea fi cuprinse in alt bloc alocat ulterior (si astfel
+ continutul sau va putea fi accesat/modificat prin alti pointeri fara stirea
+ utilizatorului); exemple:
+
+ int *p,*q;
+ p=(int *)malloc(sizeof(int));
+ q=(int *)malloc(sizeof(int)); 
+   /* p si q pointeaza variabile dinamice diferite*/
+ *p=10; *q=20; printf("%d",*p); /* afisaza 10 */
+
+ int *p,*q;
+ p=(int *)malloc(sizeof(int)); 
+   /* p pointeaza o noua variabila dinamica */
+ free(p); 
+   /* p nu devine NULL si pointeaza aceeasi variabila */
+ q=(int *)malloc(sizeof(int)); 
+   /* intamplator va aloca aceeasi variabila pe care o pointeaza p,
+      deoarece acum e considerata libera */
+ *p=10; *q=20; printf("%d",*p);/* afisaza 20 */
+
+- "calloc()" este util pentru a aloca vectori sau pentru a aloca zone
+ initializate cu 0 fara sa mai initializam noi explicit; exemplu:
+
+ int *v; v=(int *)calloc(10,sizeof(int));
+
+este echivalent cu:
+
+ int *v,i; v=(int *)malloc(10*sizeof(int)); for(i=0;i<10;++i)v[i]=0;
+
+- "realloc()" este util pentru a implementa vectori de dimensiune variabila;
+ cu ajutorul lor putem implementa stive fara sa folosim liste inlantuite (a
+ se vedea un exemplu mai jos).
+
+Exemplu: Stive (de intregi) alocate secvential, folosind vectori de
+========    dimensiune variabila; aplicatie la un program care verifica daca
+ un sir de paranteze este corect imperechiat; in acest sens asimilam o
+ paranteza deschisa cu un numar intreg pozitiv si o paranteza inchisa cu un
+ numar intreg negativ; modulul numarului da tipul parantezei; de exemplu:
+   1 2 3 -3 -2 4 -4 -1 este corect imperechiat
+   1 2 3 -2 4 -4 -1    nu este corect imperechiat
+
+#include<stdio.h>
+#include<stdlib.h>
+
+struct stiva{int *v, n, i;};
+ /* v = adresa bufferului cu elemente (gestionat ca un vector)
+    i = indicele elementului din varf
+    n = dimensiunea curenta a bufferului 
+ */
+
+void init(struct stiva *s){s->v=NULL; s->n=0; s->i=-1;}
+ /* initializeaza stiva pentru prima folosire (constructor) */
+
+void clear(struct stiva *s){free(s->v); s->v=NULL; s->n=0; s->i=-1;}
+ /* dezaloca resursele stivei dupa ultima folosire (destructor) */
+
+int push(struct stiva *s, int x){ /* insereaza un element */
+  if(s->i==s->n-1){
+    int *p;
+    if((p=realloc(s->v,s->n+10))==NULL)return 0;
+    s->v=p; s->n+=10;
+  }
+  ++s->i; s->v[s->i]=x;
+  return 1;
+}
+
+int pop(struct stiva *s, int *x){ /* extrage un element */
+  if(s->i==-1)return 0;
+  *x=s->v[s->i]; --s->i;
+  if(s->i==-1)clear(s);
+  else if(s->i<s->n-20){s->n-=10; realloc(s->v,s->n);}
+  return 1;
+}
+
+int vida(struct stiva *s){return s->i==-1;} /* test stiva vida */
+
+int main(){
+  int v[]={1, 2, 3, -3, -2, 4, -4, -1}, n=sizeof(v)/sizeof(int), i, x;
+  struct stiva s;
+  init(&s);
+  for(i=0;i<n;++i)
+    if(v[i]>0) push(&s,v[i]);
+    else if(vida(&s)) break;
+                 else {pop(&s,&x); if(v[i]!=-x)break;}
+  if(i==n && vida(&s))printf("Sir corect.\n");
+                 else printf("Sir gresit.\n");
+  clear(&s);
+  return 0;
+}
+
+Comentarii:
+- pentru a evita alocarea/dezalocarea succesiva atunci cand facem multe
+ operatii push/pop alternate iar s->i==s->n-1, cand a trebuit sa extindem
+ bufferul (la push) acesta a fost extins cu 10 elemente (nu doar cu 1),
+ iar restrangerea acestuia (la pop) a fost facuta doar cand s->i<s->n-20
+ si atunci l-am restrans cu 10 elemente;
+- functia "init()" trebuie apelata o singura data pentru fiecare stiva din
+ program, atunci cand aceasta isi incepe existenta (inaintea primei sale
+ folosiri); ea este asemeni unui constructor din limbajul C++; functia
+ "clear()" trebuie apelata o singura data pentru fiecare stiva din program,
+ atunci cand aceasta isi inceteaza existenta (dupa ultima sa folosire); ea
+ este asemeni unui destructor din limbajul C++; in programul nostru nu a
+ fost necesara apelarea lui "clear()" la sfarsit deoarece la terminarea
+ normala a programului memoria dinamica alocata de acesta si nedezalocata
+ explicit se dezaloca automat; am vrut insa sa ilustram un stil general de
+ lucru;
+- in "main()", initializarea lui "n" cu sizeof(v)/sizeof(int) (dimensiunea
+ vectorului / dimensiunea componentelor) face ca "n" sa fie initializat
+ automat cu numarul de elemente din vector; de aceea, daca vrem sa schimbam
+ sirul de paranteze verificat, e suficient sa schimbam initializarea lui
+ "v", nu si la "n";
+- functiile "push()", "pop()" de mai sus returneaza 1 cand operatia reuseste
+ si 0 cand nu; am presupus ca esecul poate fi cauzat doar de imposibilitatea
+ alocarii sau extinderii bufferului (push) nu si la restrangerea acestuia
+ (pop) - de aceea nu am testat succesul lui "realloc(s->v,s->n)" din"pop()";
+ pentru claritatea algoritmului de verificare a sirului de paranteze, in
+ programul nostru nu am testat succesul/esecul operatiilor push/pop; ar fi
+ suficient sa testam push (deoarece pop se face doar daca testul de vida da
+ fals) si sa scriem:
+
+    if(v[i]>0)
+      {if(!push(&s,v[i]))
+         {printf("Eroare la alocare.\n"); clear(&s); return 1;}
+      }
+    else ...
+
+Exemplu: implemetarea matricilor cu numar oarecare, alocat dinamic, de linii
+========  si coloane, de numere intregi.
+
+  #include<stdio.h>
+  #include<stdlib.h>
+
+  int ** alocmat(int nl, int nc){
+    int i,j,**p;
+    if((p=malloc(nl*sizeof(int *)))==NULL)return NULL;
+    for(i=0;i<nl;++i)
+      if((p[i]=malloc(nc*sizeof(int)))==NULL){
+        for(j=0;j<i;++j)free(p[j]);
+        free(p);
+        return NULL;
+      }
+     return p;
+  }
+
+  void delmat(int nl, int nc, int **p){
+    int i;
+    for(i=0;i<nl;++i)free(p[i]);
+    free(p);
+  }  
+
+  void citmat(int nl, int nc, int **a){
+    int i,j;
+    for(i=0;i<nl;++i)for(j=0;j<nc;++j)scanf("%d",&a[i][j]);
+  }
+
+  void scrmat(int nl, int nc, int **a){
+    int i,j;
+    for(i=0;i<nl;++i){
+      for(j=0;j<nc;++j)printf("%4d ",a[i][j]);
+      printf("\n");
+    }
+  }
+
+  void addmat(int nl, int nc, int **a, int **b, int **c){
+    int i,j;    
+    for(i=0;i<nl;++i)for(j=0;j<nc;++j)c[i][j]=a[i][j]+b[i][j];
+  }
+
+  void main(){
+    int l, c, **x, **y, **z;
+
+    printf("Dati nl si nc comune:\n");
+    scanf("%d%d",&l,&c);
+
+    if((x=alocmat(l,c))==NULL){
+      printf("Eroare la alocarea primei matrici.\n");
+      goto incheiere1;
+    }
+    printf("Dati componentele primei matrici:\n");
+    citmat(l,c,x);
+
+    if((y=alocmat(l,c))==NULL){
+      printf("Eroare la alocarea celei de-a doua matrici.\n");
+      goto incheiere2;
+    }
+    printf("Dati componentele celei de-a doua matrici:\n");
+    citmat(l,c,y);
+
+    if((z=alocmat(l,c))==NULL){
+      printf("Eroare la alocarea matricii suma.\n");
+      goto incheiere3;
+    }
+    addmat(l,c,x,y,z);
+    printf("Matricea suma este:\n");
+    scrmat(l,c,z);
+
+    delmat(l,c,z);
+   incheiere3:
+    delmat(l,c,y);
+   incheiere2:
+    delmat(l,c,x);
+   incheiere1:
+  }
+
+Exemplu: Functie care citeste o linie de text si o furnizeaza intr-un string
+========  alocat dinamic si un program ilustrativ:
+
+  #include<stdio.h>
+  #include<stdlib.h>
+
+  char *mygets(){
+    char c,*s,*s1; int n;
+    s=NULL; n=0;
+    do{
+      if((s1=realloc(s,n+1))==NULL){free(s); fflush(stdin); return NULL;}
+      scanf("%c",&c); s=s1; s[n]=c; ++n;
+    }while(c!='\n'&&c!='\r');
+    s[n-1]='\0';
+    fflush(stdin);
+    return s;
+  }
+      
+  void main(){
+    char *a;
+    printf("Dati un string: "); a=mygets();
+    printf("Am citit: %s\n",a);
+    free(a);
+  }
+
+
+Dragulici Dumitru Daniel,
+Facultatea de matematica si informatica,
+Universitatea Bucuresti,
+2008

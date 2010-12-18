@@ -1,0 +1,1262 @@
+Cursul 10 - Gestiunea fisierelor:
+=================================
+
+ FISIERUL (FILE) este o unitate abstracta de organizare a informatiei, prin
+care SO prezinta informatia catre softul de nivel superior. Fisierele
+desemneaza de obicei colectii de date stocate pe un suport extern (disc,
+discheta, banda, CD-ROM, etc.),  dar pot desemna si echipamente (terminale,
+imprimante, etc.) sau alte surse de informatii.
+ Intr-o anumita acceptiune, programele utilizator sunt mijloace de definire
+a unor filtre prin care informatia este citita din niste fisiere sursa, este
+prelucrata, apoi scrisa in niste fisiere desinatie. De exemplu un
+compilator citeste niste fisiere cu cod sursa, il transforma in cod
+masina, apoi il scriu in niste fisiere obiect/executabile, generand eventual
+si un fisier de erori (care poate fi pe un terminal); un editor de texte
+citeste informatii de la un fisier terminal si scrie intr-un fisier de
+pe disc.
+  In UNIX/Linux/Windows, orice proces are acces la trei fisiere abstracte:
+- INTRAREA STANDARD (STANDARD INPUT): o abstractizare a unui fisier de
+ intrare;
+- IESIREA STANDARD (STANDARD OUTPUT): o abstractizare a unui fisier de
+ iesire;
+- IESIREA STANDARD PENTRU ERORI (STANDARD ERROR): o abstractizare a unui
+ fisier in care se raporteaza erori.
+Aceste fisiere abstracte pot fi puse in corespondenta in diverse moduri cu
+fisiere (sau echipamente) concrete. La crearea procesului, el mosteneste
+automat corespondenta existenta la procesul parinte.
+
+ Fisierele sunt resurse ale SO. Partea din SO care se ocupa de gestiunea
+fisierelor s.n. SISTEM DE FISIERE (FILE SYSTEM). Ea trebuie sa asigure atat
+mecansime de implementare a fisierelor, cat si mecanisme de interfatare
+intre fisiere si softul de nivel utilizator (de regula sub forma unor
+apeluri sistem); in particular, trebuie sa ofere un mecanism de protectie
+pentru a permite utilizatorilor sa-si administreze accesul la fisiere.
+ Un instrument important de gestiunea fisierelor il constituie DIRECTORUL
+(CATALOGUL, engl. DIRECTORY). Un director contine referinte catre un grup
+de fisiere si (alte) directoare. In general, ansamblul de fisiere si
+directoare pe care il gestioneaza SO, organizat dupa aceste referiri,
+formeaza arborescente; astfel, prin analogie cu arborele genealogic, putem
+vorbi de director parinte al unui fisier, fisiere frati etc. In unele SO
+(ex. UNIX/Linux) directoarele sunt tot niste fisiere, dar de un tip special.
+
+ Principala utilitate a fisierelor este stocarea informatiei pe termen lung;
+in acest scop, trebuie indeplinite urmatoarele conditii:
+- sa fie posibila stocarea unei cantitati mari de informatii;
+- informatia trebuie sa fie PERSISTENTA (PERSISTENT), adica sa nu fie
+ afectata de crearea/terminarea proceselor (de ex. sa nu se piarda dupa
+ terminarea procesului/proceselor care o folosesc);
+- mai multe procese trebuie sa poata accesa informatia concurent.
+
+ Principalele subiecte ale proiectarii unui sistem de fisiere privesc:
+STRUCTURA, NUMIREA, ACCESAREA, FOLOSIREA, PROTEJAREA si IMPLEMENTAREA
+fisierelor.
+
+I. Interfata sistemului de fisiere:
+-----------------------------------
+
+ Din punct de vedere al utilizatorului, este important cum ii apare acestuia
+sistemul de fisiere, adica: NUMIREA FISIERELOR, STRUCTURA LOR (elementele
+logice constitutive), TIPURILE DE FISIERE, MODALITATILE DE ACCES si
+OPERATIILE CU FISIERE.
+
+I.1. Fisiere (obisnuite):
+-------------------------
+
+Numirea fisierelor:
+-------------------
+
+ Regulile de numire a fisierelor difera de la un SO la altul, dar in general
+se folosesc siruri de caractere, cu anumite restrictii privind caracterele
+permise si lungimea sirurilor; unele SO fac distinctie intre literele mari
+si mici (sunt CASE-SENSITIVE), altele nu (sunt CASE-INSENSITIVE).
+ Exemple:
+- in MS-DOS (sistemul de fisiere FAT): fisierele au un NUME PROPRIUZIS
+ (BASENAME) format din 1 - 8 caractere si o EXTENSIE (EXTENSION) formata din
+ 0 - 3 caractere, separate prin caracterul special "." (8.3 FILE NAME);
+ numele si extensia pot contine orice caractere in afara de SPACE, DEL,
+ caracterele de cod <= 0x1F si caracterele:
+                    . " / \ | : < > ? *
+ de asemenea, nu pot fi folosite anumite cuvinte (care sunt rezervate de
+ sistem pentru anumite dispozitive standard de I/O): AUX, COM1, COM2, ...,
+ CON, LPT1, LPT2, ..., NUL, PRN;
+  MS-DOS este case-insensitive, asa ca denumirile "Sisteme.doc" si
+ "sisteme.doc" vor fi considerate ca desemnand acelasi fisier;
+- in sistemele Windows: e suportat sistemul de fisiere MS-DOS
+ (mostenindu-i proprietatile, de ex. modul de constructie a numelor), dar
+ si alte sisteme de fisiere; unele versiuni de Windows (ex: NT, 2000) au in
+ plus un sistem de fisiere nativ (NTFS) cu proprietati speciale (de ex. nume
+ Unicode);
+  in Windows fisierele pot avea nume mai lungi, ele sunt stocate cu
+ conservarea distinctiei intre litere mari si mici (CASE-PRESERVATION),
+ dar atunci cand sunt furnizate unei comenzi aceasta nu va face distinctia
+ respectiva (case-insensitive); 
+  pentru mentinerea compatibilitatii cu MS-DOS, pentru fiecare fisier se
+ retine atat numele lung, cat si un alias in format 8.3, ca intrari speciale
+ in director; aliasul 8.3 este generat automat din numele lung, iar daca
+ vreo componenta a acestuia (numele propriuzis sau extensia) depasesc
+ lungimea maxima permisa de formatul 8.3, sfarsitul acestea este inlocuit
+ cu un "~";
+- in UNIX/Linux (de ex. sistemul de fisiere ext3, specific Linux): numele
+ fisierelor nu are mai multe componente (nume propriuzis si extensie), iar
+ caracterul "." este un caracter obisnuit, care poate sau nu face parte din
+ nume, chiar de mai multe ori; pentru compatibilitatea deplina cu standardul
+ POSIX se folosesc doar caracterele "A" – "Z", "a" – "z", "0" – "9", ".",
+ "_" si "-"; sistemele UNIX/Linux sunt case-sensitive;
+  asadar, numele "Sisteme.doc" si "sisteme.doc" sunt considerate diferite,
+ iar "a.b.c" si ".abc" sunt nume valide (ceea ce nu era adevarat in MS-DOS);
+ in cele ce urmeaza, partea numelui de dupa ultimul "." va fi numita tot
+ "extensie", dar este doar o conventie de limbaj, nu desemneaza o componenta
+ logica distincta a numelui (numele este un sir unitar); mai general, daca
+ numele contine mai multe ".", portiunile sale delimitate de ".", mai putin
+ prima, vor fi numite "extensii" - deci "a.b.c" are doua extensii.
+
+ In general, aplicatiile fac anumite presupuneri despre fisiere in functie
+de extensia lor; de asemenea, cand le indicam niste fisiere, putem omite
+extensia lor si atunci vor presupune o extensie implicita; in Windows,
+sistemul insusi poate retine o anumita sociere de aplicatii unor extensii,
+iar atunci cand executam dublu-click pe pictograma unui fisier, el va fi
+"deschis" cu aplicatia corespunzatoare extensiei sale.
+ Prezentam cateva extensii uzuale si semnificatiile lor:
+
+.txt - fisier text (plain text, ASCII)
+.h   - header C/C++
+.c   - sursa C
+.cpp - sursa C++
+.exe - fisier executabil (in MS-DOS< Windows)
+.zip - arhiva comprimata ZIP
+.tar - arhiva TAR (in UNIX/Linux)
+.gz  - fisier comprimat GZIP (in UNIX/Linux)
+.pdf - document in format PDF
+.jpg - imagine codata in formatul JPEG
+.mp3 - muzica codata in formatul MP3
+.mpg - film codat in formatul MPEG
+.html - pagina web, in format HTML
+
+ Unele SO (MS-DOS, Windows, UNIX, Linux, etc.) folosesc pentru directoare
+aceleasi reguli de numire ca si in cazul fisierelor.
+
+ In sistemul concret de fisiere pe care il vede o instanta a unui SO, mai
+multe fisiere pot avea acelasi nume, de aceea numele nu este suficient
+pentru a identifica in mod unic un anumit fisier sau director; in acest scop
+se va folosi un SPECIFICATOR, construit dupa anumite reguli si care poate
+contine:
+- PROTOCOLUL (PROTOCOL) sau SCHEMA (SCHEME): metoda de acces (ex: HTTP, FTP,
+    FILE);
+- GAZDA (HOST) sau IDENTIFICATORUL DE RETEA (NETWORK-ID): numele sistemului
+    gazda, adresa IP, numele domeniului, numele retelei LAN
+    (ex: wikipedia.org, 207.142.131.206, \\MYCOMPUTER, SYS:);
+- DISPOZITIVUL (DEVICE) sau NODUL (NODE): portul, socket-ul, dispozitivul
+    punctul de montare al radacinii (root mountpoint), discul, volumul
+    (ex: C:, /, SYSLIB);
+- CALEA (PATH): traseul (succesiunea directoarelor) parcurs in arborescenta
+    in care se afla fisierul pentru a ajunge dintr-un punct cunoscut (ex:
+    radacina) la fisierul respectiv (ex: /usr/bin, \TEMP, [USR.LIB.SRC]);
+    pentru a separa componentele unei cai se foloseste "\" in MS-DOS si
+    Windows, "/" in UNIX si Linux, ">" in MULTICS;
+- NUMELE PROPRIUZIS (BASENAME);
+- EXTENSIA (EXTENSION), precedata de ".";
+- VERSIUNEA (VERSION): numarul de versiune.
+
+ De exemplu:
+- in MS-DOS, Windows, sistemul poate contine mai multe discuri logice,
+ notate "A:", "B:", "C:", etc. (pot corespunde unor partitii pe un disc
+ fizic, unitati de discheta, unitati CD-ROM, etc.) si fiecare are propria
+ sa arborescenta de directoare si fisiere; de aceea, specificatorul complet
+ trebuie sa contina disc, cale, nume, extensie; componentele caii se separa
+ prin "\"; exemplu: "d:\utilizatori\ion\work\teme.txt"
+- in UNIX/Linux sistemul vede o singura arborescenta de directoare si
+ fisiere; parti din aceasta arborescenta pot fi situate pe diverse
+ dispozitive fizice, dar acest lucru nu este vizibil in comenzile uzuale -
+ ele urmaresc cai intr-o aceeasi arborescenta logica; sistemului i se pot
+ oricand adauga fizic dispozitive noi, apoi cu comanda "mount" se poate 
+ integra logic arborescenta de pe el ca subarbore in arborescenta vazuta
+ de sistem (a.i. entitatile de acolo vor putea fi accesate folosind cai
+ in arborescenta mare); cu "umount" se anuleaza aceasta integrare logica
+ (dupa care dispozitivul se poate elimina si fizic);
+  fiind un singur arbore, specificatorul complet va contine doar cale si
+ nume;  componentele caii se separa prin "/"; exemplu:
+ "/home/ion/work/teme.txt" ("teme.txt" fiind privit ca un tot logic).
+
+ Arborescentele de directoare si fisiere pot fi foarte mari; pentru a evita
+caile foarte lungi, diverse SO adauga diverse conventii care permit scrierea
+de cai mai scurte. In general aceste conventii sunt legate de existenta unor
+discuri, directoare, etc. curente intr-un anumit context (ele se pot schimba
+prin comenzi); odata fixate asemenea elemente curente, le putem omite din
+scrierea specificatorilor si atunci se vor considera ca sunt cele curente
+contextului respectiv. Exemple:
+- in MS-DOS: la nivelul instantei SO (intregii sesiuni de lucru), unul din
+ discurile logice este considerat DISC CURENT (se poate schimba tastand pe
+ prompter noul disc, de ex. "d:"), si pe orice disc unul din directoare
+ este considerat DIRECTOR CURENT al discului respectiv (se poate schimba cu
+ comanda "cd"); atunci in scrierea specificatorilor putem omite discul sau/
+ si calea si atunci se va considera ca este vorba de discul curent, resp.
+ de directorul curent al discului considerat;
+  exemplu: daca discul curent este "d:" iar directorul sau curent este cel
+ specificat de "d:\utilizatori\ion\work", atunci specificatorii urmatori
+ sunt echivalenti:
+                      d:\utilizatori\ion\work\teme.txt
+                      \utilizatori\ion\work\teme.txt
+                      d:teme.txt
+                      teme.txt
+
+- in UNIX/Linux fiecare proces considera in mod independent cate un
+ director din (unica) arborescenta ca fiind DIRECTORUL sau CURENT (este
+ o caracteristica a procesului); el si-l poate schimba executand apelul
+ sistem "chdir()" (sau unul asemanator);
+  in particular, interpretoarele de comenzi (shell) au (ca proces) cate
+ un director curent, de care vor tine cont atunci cand vom da linii de
+ comanda continand specificatori incompleti; putem schimba directorul curent
+ vazut de un shell cu comanda "cd" (atunci procesul shell va executa apelul
+ sistem "chdir()");
+  daca un proces incearca sa acceseze un fisier caruia nu i-am specificat
+ calea, il va cauta in directorul lui curent;
+  exemplu: daca directorul curent al unui proces este "/home/ion/work",
+ atunci pentru el urmatorii specificatori sunt echivalenti:
+
+                      /home/ion/work/teme.txt
+                      teme.txt
+
+ De asemenea, odata fixate un disc sau director curent, putem incepe o cale
+si din alt punct decat radacina, iar caile pot urma diverse trasee, nu numai
+descendente; in particular pot exista mai multe cai ce unesc doua puncte
+ale unei arborescente; aceste conventii folosesc notatii ca "." si "..";
+practic, o cale poate incepe:
+- din radacina, desemnata prin "\", in cazul MS-DOS, Windows, sau "/",
+ in cazul UNIX, Linux;
+- din directorul curent, desemnat prin ".";
+- din parintele directorului curent, desemnat prin "..";
+- dintr-un copil al directorului curent, desemnat prin numele si, daca e
+ cazul, extensia acestuia; in general, sistemele de fisiere nu admit doi
+ frati cu acelasi nume, deci nu exista ambiguitate;
+odata calea inceputa, dupa un separator ("\" sau "/") poate urma:
+- ".", insemnand acelasi director ca si cel precedent pe cale;
+- "..", insemnand parintele directorului precedent pe cale;
+- un nume, eventual cu extensie, insemnand copilul respectiv al directorului
+ precedent pe cale.
+Exemplu: daca intr-un sistem MS-DOS este curent discul "d:" iar pe el avem
+ arborecenta urmatoare (in care este curent directorul "d") (am incadrat
+ entitatile curente intre []):
+                               [d:]
+                               / \
+                              a   b
+                                 / \
+                                c  [d]
+                                   / \
+                                  /   f
+                              ___e___
+                             /   |   \
+                            /    |    \
+                           /     |     \
+                         g.txt  g.c  fis.txt
+
+ atunci urmatorii specificatori sunt echivalenti:
+
+  d:\b\d\e\g.txt                       \b\d\e\g.txt
+  d:.\e\g.txt                          .\e\g.txt
+  d:..\d\e\g.txt                       ..\d\e\g.txt
+  d:e\g.txt                            e\g.txt
+  d:f\..\e\..\..\d\.\.\.\e\g.txt       f\..\e\..\..\d\.\.\.\e\g.txt
+
+ Anumite programe, de ex. interpretoarele de comenzi, accepta specificarea
+unui grup de entitati ale sistemului de fisiere, cu ajutorul unei MASTI
+(SABLON, EXPRESIE REGULATA), scrisa dupa anumite reguli; aceste reguli
+difera intr-o anumita masura de la program la program. De obicei insa
+mastile au structura unui specificator, scris dupa regulile de mai sus,
+dar in care pot aparea si caractere speciale WILDCARD, avand semnificatii
+generice; masca desemneaza toate entitatile sistemului de fisiere ce pot fi
+identificate printr-un specificator obtinut din ea inlocuind caracterele
+wildcard dupa regulile specifice. Exemple uzuale de caractere wildcard sunt
+"*", insemnand un sir oarecare de caractere, eventual vid, si "?", insemnand
+un singur caracter, oarecare. Astfel, in exemplul de mai sus mastile:
+
+  d:..\d\e\*.txt                       ..\d\e\*.txt
+
+desemneaza grupul format din "g.txt" si "fis.txt". iar mastile:
+
+  d:..\d\e\?.txt                       ..\d\e\?.txt
+
+desemneaza doar pe "g.txt". Grupul de entitati desemnat de o masca poate fi
+si vid. Un specificator poate fi considerat un caz particular de masca,
+care nu are caractere wildcard (si astfel desemneaza cel mult o entitate).
+
+ Atat in cazul specificatorilor cat si al mastilor, caile care incep din
+radacina unei arburescente s.n. CAI ABSOLUTE, celelalte s.n. CAI RELATIVE.
+ Caile absolute duc mereu in acelasi loc (sau sunt tot timpul invalide),
+indiferent de pozitionarea directorului curent; de aceea e bine sa le
+folosim in programe, pentru a avea aceeasi semnificatie indiferent care este
+directorul curent al procesului care ruleaza programul; dezavantajul lor
+este ca pot fi foarte lungi.
+ Caile relative isi schimba semnificatia daca schimbam directorul curent,
+dar pot fi alese sa fie foarte scurte, si de aceea sunt utile de folosit in
+lucrul interativ (de ex. in comenzile shell); in exemlul de mai sus, daca
+schimbam directorul curent in "e", ne putem referi la cei trei copii ai sai
+doar prin:
+
+ g.txt
+ g.c
+ fis.txt
+
+acestia sunt specificatori ce respecta regulile de mai sus, deoarece incep
+dintr-un copil al directorului curent (si se termina acolo).
+
+ Ca terminologie, directorul curent (current directory) se mai numeste si
+DIRECTOR DE LUCRU (WORKING DIRECTORY).
+
+Structura fisierelor:
+---------------------
+
+ Fisierele pot fi structurate in mai multe moduri, de exemplu:
+
+a) SECVENTA DE OCTETI: fisierul este o secventa nestructurata de octeti;
+  SO nu implementeaza o anumita semnificatie a acestor octeti, orice
+ interpretare este lasata pe seama programelor utilizator;
+  acest gen de fisiere este folosit de MS-DOS, Windows, UNIX, Linux, etc.;
+
+b) SECVENTA DE INREGISTRARI: fisierul este o secventa de inregistrari de
+  lungime fixa, fiecare cu o structura interna proprie;
+   citirea/scrierea se fac la nivel de inregistrare;
+   pe vremea cartelelor perforate, multe SO foloseau fisiere cu inregistrari
+  de 80 caractere (imagini de cartele) sau 132 caractere (lungimea unei
+  linii printate de o imprimanta de linie); citirea/scrierea se faceau in
+  unitati de 80, resp. 132 caractere (din care ultimile 52 caractere puteau
+  fi goale);
+   SO actuale nu mai folosesc acest gen de fisiere;
+
+c) ARBORE: fisierul este un arbore de inregistrari, nu neaparat de aceeasi
+  lungime, fiecare avand la o anumita pozitie fixa fata de inceputul ei un
+  camp CHEIE, pe baza caruia se poate identifica inregistrarea; arborele
+  este sortat dupa campul cheie, permitand cautarea rapida a unei chei;
+   citirea/scrierea nu vizeaza inregistrarea "de pe o anumita pozitie" sau
+  inregistrarea "urmatoare" (desi aceast lucru este posibil)ci inregistrarea
+  cu "o anumita cheie", SO fiind cel care stabileste pozitia fizica a
+  inregistrarii in fisier; deci inregistrarile puteau fi identificate prin
+  niste chei, nu pozitii;
+   acest gen de fisiere este folosit de mainframe-urile utilizate inca in
+  unele aplicatii comerciale de procesare date.
+
+ -----         -----                 ----------------
+ |   |octet    |   |                 |    |    |    |inregistrare
+ -----         |   |inregistrare     ----------------
+ |   |         |   |                     |    |     |
+ -----         -----     ----------------- ----     ----------
+ |   |         |   |     |                 |                 |
+ -----         |   |     V                 V                 V
+ |   |         |   |    ----------------  ----------------  ----------------
+ -----         -----    |    |    |    |  |    |    |    |  |    |    |    |
+ |   |         |   |    ----------------  ----------------  ----------------
+ -----         |   |                          |
+ |   |         |   |                          |
+ -----         -----                          V
+ |   |         |   |                         ----------------
+ -----         |   |                         |    |    |    |
+ |   |         |   |                         ----------------
+ -----         -----
+  (a)           (b)                        (c)
+
+ Modalitatile de structurare de mai sus privesc fisierele asa-zis
+"obisnuite", de uz. general (regular files, in UNIX/Linux); pe langa
+acestea, SO mai folosesc si alte tipuri de fisiere, cu o structura si
+utilitate speciale.
+
+Tipuri de fisiere:
+------------------
+
+ Fiecare SO suporta anumite tipuri de fisiere. In UNIX/Linux gasim tipurile:
+- FISIER OBISNUIT (REGULAR FILE): fisier de uz general, de ex. contine cod
+ sau date utilizator;
+- DIRECTOR (DIRECTORY): contine (sub forma unor intrari) referinte catre un
+ grup de (alte) fisiere (obisnuite sau nu); cu ajutorul directoarelor este
+ organizat sistemul de fisiere;
+- FISIER SPECIAL CARACTER (CHARACTER SPECIAL FILE): modeleaza echipamente
+ de I/O seriale, ex: terminale, imprimante, adaptoare de retea; permite doar
+ accesul (citire/scriere) secvential la informatie;
+- FISIER SPECIAL BLOC (BLOCK SPECIAL FILE): modeleaza echipamente de I/O
+ de tip bloc, in special discuri; permite accesul aleator la informatie;
+- TUB (sau CONDUCTA, engl. PIPE): fisier ce functioneaza dupa o disciplina
+ de coada (FIFO): caracterele pot fi citite doar in ordinea in care au fost
+ scrise, iar citirea lor le elimina din tub; tuburile sunt un instrument
+ de comunicare intre procese aflate in aceeasi instanta UNIX/Linux;
+- SOCKET: fisier special folosit in comunicarea intre procese ce pot sa nu
+ fie in aceeasi instanta UNIX/Linux;
+- LEGATURA SIMBOLICA (SYMBOLIC LINK): contine o referinta catre un alt
+ fisier, sub forma reprezentarii textuale a unei cai; de obicei apelurile
+ sistem (si astfel comenzile shell construite deasupra lor), cand sunt
+ aplicate unei legaturi simbolice, se aplica automat prin tranzitivitate
+ fisierului referit; exista si exceptii;
+  analogul legaturilor simbolice in sistemele Windows sunt shortcut-urile,
+ implementate sub forma unor fisiere cu extensia ".lnk", ce contin referinte
+ catre alte fisiere; cand se executa dublu-click pe pitograma unui shortcut,
+ rutina declansata se aplica automat fisierului referit.
+
+ Din punct de vedere al continutului, fisierele obisnuite sunt in general
+FISISRE TEXT (ASCII) sau FISIERE BINARE.
+ Fisierele text contin linii de text ce poate fi citit de catre om,
+separate prin secvente de caractere speciale (in MS-DOS si Windows se
+foloseste perechea de caractere Carriage Return (cod ASCII zecimal 13),
+Line Feed (cod ASCII zecimal 10), iar in UNIX/Linux doar caracterul Line
+Feed); fiecare caracter al textului este stocat doar sub forma codului sau
+ASCII pe un octet, fara alte infomatii privind fontul, dimensiunea, etc. De
+aceea toate programele de prelucrare text (editare, afisare, printare, etc.)
+trateaza fisierele text in acelasi fel (au un grad mare de portabilitate).
+In plus, datorita simplitatii codificarii informatiei, fisierele text sunt
+usor de folosit pentru a formaliza iesirea unui program, in scopul de a o
+furniza ca intrare altui program.
+ Fisierele binare au o structura si un continut recunoscute de anumite
+programe sau de SO insusi; ele pot fi: programe executabile, documente
+intr-un format ce retine pe langa textul propriuzis si informatii privind
+fonturile, marimea, culoarea, etc. (si care sunt recunoscute doar de anumite
+programe de procesare text), imagini, filme, muzica, arhive, etc., in
+diverse codificari. Inspectarea lor cu un program de vizualizare fisiere
+text ar conduce la afisarea unor secvente de caractere neinteligibile.
+ Subliniem ca impartirea fisierelor obisnuite in fisiere text si fisiere
+binare tine doar de semnificatia continutului acestora pentru utilizator,
+SO nu le implementeaza diferit - toate sunt simple secvente de octeti,
+carora li se pot aplica aceleasi operatii.
+
+Modalitati de acces la fisiere:
+-------------------------------
+
+ Prin operatiile pe care le permite, SO poate implementa diverse modalitati
+de acces la fisiere:
+
+- ACCES SECVENTIAL (SEQUENTIAL ACCES): octetii sau inregistrarile pot fi
+ citite doar in ordinea lor din fisier; pentru a putea citi o informatie,
+ trebuie citit tot ce se afla inainte in fisier; similar la scriere;
+  accesul secvential se preteaza la stocarea fisierelor pe benzi magnetice
+ (la primele SO era singurul tip de acces);
+
+- ACCES ALEATOR (RANDOM ACCES): octetii sau inregistrarile pot fi citite/
+ scrise in orice ordine; deci, putem accesa direct orice informatie din
+ fisier; in functie de structura fisierului, accesul se poate face dupa
+ pozitie sau dupa cheie;
+  specificarea locului de unde sa se inceapa o citire/scriere se poate face:
+   * dand fiecarui apel de citire/scriere pozitia din fisier de unde
+    sa inceapa operatia;
+   * efectuand un apel special de pozitionare (seek) care seteaza pozitia
+    curenta, apoi efectuand o citire/scriere secventiala de la noua pozitie
+    curenta;
+ accesul aleator a putut fi implementat odata cu aparitia discurilor;
+
+ In unele SO pentru mainframe-urile vechi, fisierele erau clasificate de la
+creare ca fiind secventiale sau cu acces aleator, permitand sistemului
+se foloseasca tehnici diferite de stocare a lor. SO moderne nu fac aceasta
+distinctie, toate fisierele sunt automat cu acces aleator.
+
+Atributele fisierelor:
+----------------------
+
+ SO asociaza fisierelor cate un set de informatii suplimentare, folosite in
+gestiunea acestora. Aceste informatii s.n. ATRIBUTELE(ATTRIBUTES) fisierelor
+si pot diferi de la un SO la altul. 
+ Cu anumite restrictii, atributele unui fisier pot fi (sau sunt automat)
+modificate prin apeluri sistem (sau programe, comenzi shell, construite
+deasupra acestora); de asemenea, unele apeluri sistem (sau programe)
+trateaza diferit fisierele, in functie de anumite atribute ale lor.
+
+ De ex. in MS-DOS si Windows sunt prezente cel putin urmatoarele atribute:
+  Archive:   fisierul a fost modificat ulterior ultimului backup (programele
+     care fac copii de siguranta (backup) sterg acest atribut, iar SO il
+     seteaza de fiecare data cand fisierul este modificat - astfel,
+     programele de backup pot afla oricand ce fisiere necesita backup);
+  Read-only: fisier ce poate fi doar citit, nu modificat;
+  Hidden:    fisier invizibil la anumite operatii (ex: scanarea directorului
+               parinte);
+  System:    fisier necesitat de SO.
+
+ Alte atribute posibile (unele sunt prezente si in anumite versiuni de
+MS-DOS, Windows, UNIX, Linux):
+
+ Protectie: cine poate accesa fisierul si in ce mod;
+ Parola: parola necesara pentru a accesa fisierul;
+ Creator: identificatorul utilizatorului care a creat fisierul;
+ Proprietar: identificatorul proprietarului curent;
+ Indicator ASCII/binar: 0/1 = fisier ASCII/binar;
+ Indicator acces aleator: 0/1 = fisier doar cu acces secvential/cu acces
+                           aleator;
+ Indicator temporar: 0/1 = fisierul nu va fi/va fi sters automat la
+                      terminarea procesului care l-a creat;
+ Indicator blocaj: 0/1 = fisier neblocat/blocat;
+ Lungimea inregistrarii: numarul de octeti ai unei inregistrari (la
+             fisierele structurate ca secventa de inregistrari sau arbore);
+ Pozitia cheii: deplasamentul cheii in cadrul unei inregistrari (la
+                fisierele structurate arbore);
+ Lungimea cheii: numarul de octeti ai cheii (la fisierele structurate
+                 arbore);
+ Momentul crearii: data si ora crearii fisierului;
+ Momentul ultimei accesari: data si ora ultimei accesari (citire sau
+                            scriere);
+ Momentul ultimei modificari: data si ora ultimei modificari (scrieri);
+ Dimensiunea curenta: numarul de octeti din fisier;
+ Dimensiunea maxima: numarul de octeti pana la care poate creste fisierul
+  (in anumite SO vechi pentru mainframe-uri acesta trebuia specificat la
+  crearea fisierului, pentru ca SO sa-i rezerve mximul de spatiu in avans).
+
+ In UNIX, Linux un fisier poate avea mai multe nume (legaturi fizice), iar
+numarul curent de nume este unul dintre atribute (stocate in i-nodul
+fisierului); un alt atribut este tipul fisierului: fisier obisnuit,
+director, tub, etc. (in UNIX/Linux toate acestea sunt considerate fisiere).
+
+Operatii cu fisiere:
+--------------------
+
+  Diferite SO ofera, de regula sub forma unor apeluri sistem, diverse
+operatii care pot fi efectuate asupra fisierelor. Cele mai des intalnite
+operatii sunt:
+
+Creare (create): se creaza fisierul, fara date in el; cu ocazia asta se pot
+  seta anumite atribute;
+Stergere (delete): se elimina fisierul din sistem;
+Deschidere (open): operatie ce trebuie efectuata inainte de a utiliza
+  efectiv fisierul (de ex. citiri, scrieri); prin aceasta operatie SO aduce
+  in memorie atributele si lista adreselor de pe disc ale blocurilor
+  asociate fisierului, in scopul accesarii rapide la operatiile ulterioare;
+Inchidere (close): elibereaza spatiul din tabelele interne folosit pentru
+  stocarea informatiilor legate de lucrul cu fisierul respectiv (ex.
+  atributele si lista adreselor de pe disc); scrierea pe disc se face in
+  blocuri iar inchiderea fisierului forteaza scrierea ultimului sau bloc,
+  chiar daca inca nu este plin; dupa inchidere, nu mai este posibila
+  utilizarea fisierului (citiri, scrieri, etc.), decat daca este deschis
+  din nou; multe SO impun o limita a numarului de fisiere pe care le poate
+  tine deschise simultan un proces;
+Citire (read), Scriere (write): se citesc/scriu date din fisier; de obicei
+  (la sistemele ce folosesc fisiere structurate ca secvente de octeti),
+  datele sunt citite/scrise incepand de la pozitia curenta, iar aceasta
+  este avansata automat pana dupa datele respective; daca pozitia curenta
+  este in interiorul fisierului, scrierea suprascrie datele aflate in
+  contiunare, iar daca este la sfarsit, scrierea creste dimensiunea
+  fisierului; o varianta de scriere este operatia de Apendare (append),
+  care poate doar sa adauge date la sfarsit;
+Pozitionare (seek): se muta pozitia curenta (de unde se vor efectua
+  urmatoarele citiri/scrieri); operatia se aplica fisierelor cu acces
+  aleator;
+Consultarea atributelor (get attributes)/Setarea atributelor(set atributes):
+  majoritatea atributelor pot fi  consultate, iar unele pot fi modificate
+  (de ex. protectia, parola, anumiti indicatori) la cerere prin operatii
+  (apeluri sistem) specifice; mentionam ca unele operatii (apeluri sistem)
+  modifica automat anumite atribute - de ex. operatia de scriere modifica
+  automat momentul ultimei modificari;
+Redenumirea (rename): se schimba numele fisierului.
+
+Fisiere puse in corespondenta cu memoria (memory-mapped files):
+---------------------------------------------------------------
+
+ Incepand cu MULTICS, unele SO permit punerea in corespondenta (maparea) a
+unui fisier sau a unei parti a acestuia cu o parte a spatiului de adrese al
+unui proces - astfel, procesul poate citi/scrie in fisier folosind
+operatiile obisnuite de citire/scriere in memorie, fara a mai fi nevoie de
+apeluri sistem speciale (read/write).
+
+ Exista doua apeluri sistem, ex. "map()" si "unmap()", cu care se instituie,
+resp. anuleaza, maparea.
+
+ Apelul "map()" necesita precizarea numelui fisierului si a adresei virtuale
+incepand de la care va fi mapat continutul fisierului; de ex. daca fisierul
+are 64K si este mapat de la adresa 512K, o instructiune care citeste/scrie
+octetul aflat la adresa 512K+1100 va citi/scrie de fapt octetul cu numarul
+1100 din fisier.
+ Ce se intampla de fapt este modificarea tabelelor interne ale sistemului
+a.i. fisierul sa devina zona de stocare (swap) a regiunii de memorie
+cuprinsa intre adresele 512K si 576K - astfel, daca scrierea la adresa 512K
+produce un defect de pagina, este incarcata in memorie pagina 0 din fisier,
+iar scrierea se face in memorie in cadrul acestei pagini; ulterior, daca
+algoritmul de inlocuire a paginilor alege sa o evacueze din memorie, ea este
+scrisa inapoi in pozitia sa din fisier.
+
+ La "unmap()" sau cand procesul se termina, toate paginile mapate si
+modificate din fisier sunt scrise inapoi pe disc in fisierul respectiv;
+fisierul ramane pe disc aratand ca si cum ar fi fost modificat de o
+combinatie de apeluri "seek()" si "write()".
+
+ Maparea fisierelor functioneaza cel mai bine in sistemele ce suporta
+segmentarea - atunci fiecare fisier poate fi mapat intr-un segment propriu,
+a.i. octetul nr. k din fisier sa coincida cu octetul k din segment.
+
+ Maparea fisierelor face programarea mai usoara, deoarece elimina
+necesitatea operatiilor de I/O, dar ridica mai multe probleme:
+- e dificil pentru SO sa afle dimensiunea unui fisier modificat, care
+ trebuie salvat pe disc la anularea maparii, deoarece nu stie ce si cati
+ octeti au fost modificati in ultima pagina (chiar daca poate afla usor
+ care este pagina de numar maxim modificata);
+- daca un proces isi mapeaza un fisier in memorie iar alt proces deschide
+ fisierul pentru citire obisnuita de pe disc, modificarile facute de primul
+ proces s-ar putea sa nu fie vazute de al doilea (o pagina modificata de
+ primul proces nu este reflectata in fisierul de pe disc, deci nu poate fi
+ vazuta de al doilea proces, pana ce pagina nu este evacuata din memorie) -
+ SO trebuie sa aibe grija ca procesele sa nu vada versiuni inconsistente ale
+ fisierului;
+- fisierul poate fi mai mare decat un segment, sau chiar decat intreg
+ spatiul virtual de adrese; de aceea, apelul "map()" trebuie implementat
+ a.i. sa permita maparea unor portiuni de fisier, nu doar a fisierelor
+ intregi.
+
+I.2. Directoare:
+----------------
+
+  Pentru a tine evidenta organizarii fisierelor, SO foloseste DIRECTOARE
+(DIRECTORY) sau FOLDERE (FOLDERS); alte denumiri: CATALOAGE, resp. MAPE; in
+unele sisteme acestea sunt ele insele fisiere (de un tip special).
+  In continuare vom prezenta modul de organizare, proprietatile si
+operatiile care se pot efectua asupra directoarelor.
+
+Moduri de organizare a sistemelor de fisiere cu ajutorul directoarelor:
+-----------------------------------------------------------------------
+
+Exista sisteme de directoare:
+
+- cu un singur nivel:
+  exista un singur director (radacina), care contine toate fisierele;
+  accesul la fisiere este rapid, dar daca mai multi utilizatori creaza
+ fisiere cu acelasi nume, aceste fisiere se suprascriu unul pe altul;
+  sistemul a fost folosit de ex. la primele calculatoare personale, unde
+ exista un singur utilizator;
+
+- cu doua niveluri:
+  exista un director radacina, in care se creaza cate un director pentru
+ fiecare utilizator, iar utilizatorii isi stocheaza fisierele in directorul
+ propriu;
+  sistemul necesita autentificare (login), pentru a sti in ce director sa
+ caute un nume specificat de fisier; daca se permite si acceasrea fisierelor
+ din alt director decat cel propriu (de ex. programele utilitare dintr-un
+ director sistem), se pot folosi cai simple;
+  acest sistem se poate folosi pe un calculator multiuser sau o retea de
+ calculatoare personale ce partajaza un acelasi server de fisiere;
+
+- ierarhice:
+  exista o ierarhie generala de directoare si fisiere, in care fiecare
+ utilizator poate crea/distruge directoare in orice loc vrea, cu anumite
+ restrictii - de ex. ierarhia creata de el nu poate incepe decat dintr-un
+ anumit punct al ierarhiei generale (directorul "home" al utilizatorului
+ respectiv, specificat la crearea acestuia);
+  astfel utilizatorii pot gestiona eficient un numar mare de fisiere,
+ grupandu-le logic in mai multe directoare;
+  pentru a specifica un fisier din ierarhie se pot folosi cai, construite
+ dupa reguli precum cele prezentate mai devreme;
+  majoritatea SO moderne folosesc aceasta organizare.
+
+ Directoarele pot avea atribute, asemeni fisierelor.
+
+ Ca structura interna, un director contine mai multe intrari, fiecare
+intrare referind un fisier sau director copil; intrarea contine cel putin
+numele copilului si un pointer catre o structura de date ce contine
+informatiile despre implementarea copilului. Pentru a implementa unitar
+algoritmul de parcurgere a cailor intr-un sistem ierarhic, primele doua
+intrari ale oricarui director contin numele "." si ".." (cu referinte catre
+acelasi director, resp. directorul sau parinte); un director GOL este un
+director care se reduce la intrarile "." si "..".
+
+Exemplu: In UNIX/Linux fiecare fisier este gestionat cu o structura de date
+ numita i-nod, care contine informatii despre fisier si este identificat
+ intern printr-un numar de i-nod; o intrare intr-un director contine (cel
+ putin) un nume si un numar de i-nod. Daca avem urmatoarele directoare si
+ fisier (am scris deasupra numarul lor de i-nod):
+
+       1                                                   7
+  (radacina)        5           15           10         (fisier)
+   ---------    ---------    ---------    ---------    ---------
+   | 1 | . |    | 5 | . |    |15 | . |    |10 | . |    |       |
+   ---------    ---------    ---------    ---------    |       |
+   | 1 |.. |    | 1 |.. |    | 5 |.. |    |15 |.. |    |       |
+   ---------    ---------    ---------    ---------    ---------
+   |   .   |    | 15|ion|    |   .   |    |   .   |
+       .        ---------        .            .
+   |   .   |    |   .   |    |   .   |        .
+   ---------        .        ---------    |   .   |
+   | 5 |usr|    |   .   |    | 10| c |    ---------
+   ---------    ---------    ---------    | 7 |f.c|
+   |   .   |                 |   .   |    ---------
+       .                         .        |   .   |
+   |   .   |                     .            .
+   ---------                     .        |   .   |
+                             |   .   |    ---------
+                             ---------
+
+ Atunci calea: /usr/ion/c/../c/../../ion/./././c/f.c
+ va fi parcursa astfel: in directorul radacina se cauta intrarea cu numele
+"usr", se constata ca este asociata i-nodului 5, se deschide directorul cu
+i-nodul 5, se cauta in el intrarea cu numele "ion", etc.; primul ".." se
+cauta in directorul cu i-nodul 10 si ne conduce inapoi la directorul cu
+i-nodul 15; primul "." se cauta in directorul cu i-nodul 15 si ne conduce
+tot la directorul cu i-nodul 15; s.a.m.d.
+
+Operatii cu directoare:
+-----------------------
+
+  Diferite SO ofera, de regula sub forma unor apeluri sistem, diverse
+operatii care pot fi efectuate asupra directoarelor. Acestea seamana cu
+operatiile asupra fisierelor, mai ales in sistemele unde directoarele sunt
+cazuri particulare de fisiere, deci functioneaza dupa aceleasi principii;
+variatiile de la un sistem la altul sunt insa mai mari decat in cazul
+operatiilor cu fisiere.
+ Exemple de operatii (inspirate din UNIX):
+ 
+Creare (create): se creaza directorul, ca director gol (i.e. care contine
+  doar "." si ".."); cu ocazia asta se pot seta anumite atribute;
+Stergere (delete): se elimina directorul din sistem; se pot sterge doar
+  directoare goale (i.e. care contin doar "." si "..");
+Deschidere director (opendir): directoarele pot fi citite (pentru a i se
+  afla copii), iar in acest scop trebuie deschise in prealabil, asemeni
+  fisierelor;
+Inchidere director (closedir): elibereaza spatiul din tabelele interne
+  folosit pentru stocarea informatiilor legate de lucrul cu directorul
+  respectiv; dupa inchidere, nu mai este posibila citirea directorului,
+  decat daca este deschis din nou;
+Citire director (readdir): se citeste intrarea curenta din director -
+  pentru directoare se retine un indicator de intrare curenta, care la
+  deschiderea directorului se afla la inceput, iar fiecare citire il
+  avanseaza automat peste intrarea citita; in UNIX/Linux se poate detecta
+  faptul ca s-a ajuns la sfarsitul directorului dupa valoarea returnata de
+  apelul de citire (anume NULL); in acest caz, indicatorul se poate pune din
+  nou la inceput cu un apel special (rewinddir), dupa care directorul se
+  poate citi din nou;
+Inserarea unei legaturi (link): in anumite sisteme (ex: UNIX/Linux) un
+ fisier poate avea mai multe nume, numite LEGATURI FIZICE (HARD LINK),
+ plasate in diverse directoare (chiar si in acelasi director); practic, mai
+ multe intrari din diverse directoare contin, alaturi de un nume, o
+ referinta catre o aceeasi structura de date (ex: i-nod) asociata unui
+ fisier fizic; astfel, fisierul poate fi accesat prin mai multe cai,
+ parcurgand drumuri diferite in ierarhia de directoare;
+  prin operatia link se creaza o noua legatura fizica fisierului (i-nodului)
+ respectiv intr-un anumit director, adica in director este o inserata o
+ intrare ce contine un nume si o referinta catre fisierul (i-nodul)
+ respectiv (in i-nod exista un contor cu numarul curent de lagaturi fizice,
+ iar operatia il va incrementa automat); apelul propriuzis primeste ca
+ parametri un specificator vechi si unul nou (cel vechi furnizeaza, prin
+ inspectarea directorului catre care conduce, i-nodul, iar cel nou indica
+ noul nume si directorul unde se insereaza intrarea);
+Eliminarea unei legaturi (unlink): se elimina o legatura fizica; apelul
+ primeste ca parametru un specificator, identifica directorul parinte si
+ numele fisierului (apar la sfarsitul specificatorului), apoi elimina
+ intrarea cu numele respectiv din acel director (apelul acceseaza si i-nodul
+ referit de intrare pentru a decrementa contorul cu numarul curent de
+ legaturi fizice);
+  daca fisierul (i-nodul) mai are si alte legaturi fizice, el ramane in
+ sistem, putand fi accesat doar prin specificatori care conduc la numele
+ respective; daca nu mai are legaturi fizice si nici nu e curent deschis
+ de vreun proces, fisierul este eliminat din sistem;
+  in UNIX/Linux apelul de stergere a fisierelor (prezentat la operatiile cu
+ fisiere) este de fapt unlink() (majoritatea fisierelor au o singura
+ legatura fizica, a.i. eliminarea acesteia atrage eliminarea fisierului);
+Consultarea atributelor (get attributes)/Setarea atributelor(set atributes):
+  asemanatoare ca in cazul fisierelor;
+Redenumirea (rename): se schimba numele directorului (ca si la fisiere).
+
+Obs: Pe sistemele vechi operatiile pentru fisiere se puteau aplica si
+ directoarelor; deci, pentru citirea directoarelor se foloseau tot
+ apelurile open(), close(), read(); astfel, directoarele erau citite
+ octet cu octet, iar interpretarea informatiei trebuia facuta explicit in
+ programul utilizator. Dezavantajele erau dificultatea scrierii programelor
+ (programatorul trebuia sa cunoasca structura intrarilor)si neportabilitatea
+ (diverse sisteme de fisiere folosesc directoare cu structuri diferite).
+  Pe sistemele noi exista operatii distincte pentru directoare - apelurile
+ opendir(), closedir(), readdir() - care permit citirea directoarelor
+ intrare cu intrare si furnizeaza informatia intr-un format standard (o
+ structura de un tip predefinit), indiferent de structura de director
+ folosita de sistem.
+
+II. Implementarea sistemului de fisiere:
+----------------------------------------
+
+ Priveste aspecte legate de stocarea fisierelor si directoarelor,
+gestionarea spatiului pe disc, functionarea eficienta si robusta.
+
+II.1. Planul sistemului de fisiere (File System Layout):
+--------------------------------------------------------
+
+ Un prim aspect de implementare a sistemelor de fisiere tine de modul de
+organizare a suportului de memorie unde sunt stocate acestea, de regula
+discul. In general, spatiul pe un disc este organizat in blocuri (cluster),
+astfel:
+- exista una sau mai multe partitii, continand sisteme de fisiere
+ independente;
+- sectorul 0 al discului s.n. MBR (Master Boot Record - inregistrarea
+ principala de initializare); acesta are la sfarsit TABELA DE PARTITII,
+ continand adresele de inceput si sfarsit ale partitiilor; una din partitii
+ este marcata ca activa;
+  la initializarea sistemului (bootare) BIOS-ul citeste si executa MBR;
+ astfel, localizeaza partitia activa, citeste primul sau bloc (numit
+ BLOC DE INITIALIZARE (BOOT BLOCK)), si executa codul de acolo;
+ acest cod incarca si lanseaza SO, stocat in acea partitie;
+  orice partitie are un boot block, chiar daca nu are si un SO instalat
+ pe ea; sistemul de fisiere de pe ea poate fi insa vazut de o instanta
+ SO lansata de pe alta partitie;
+In afara faptului ca incepe cu un boot block, planul unei partitii poate
+diferi mult de la un tip de sistem de fisiere la altul; de ex. poate
+contine in continuare:
+- un SUPERBLOC (SUPERBLOCK): contine parametrii principali ai sistemului de
+ fisiere, cum ar fi: numarul magic (care identifica tipul de sistem de
+ fisiere), numarul de blocuri din sistemul de fisiere, alte informatii
+ administrative; el este citit in memorie la bootare sau la prima accesare
+ a sistemului de fisiere respectiv;
+- informatii despre blocurile libere din sistemul de fisiere, de ex. sub
+ forma unor harti de biti sau liste de pointeri;
+- tabela de i-noduri a partitiei (un vector de structuri), cate un i-nod
+ pentru fiecare fisier, continand informatii complete despre acesta (in
+ sistemele de fisiere UNIX/Linux); indicele i-nodului in tabela este numarul
+ de i-nod (observam ca numaratoarea i-nodurilor se reia pe fiecare
+ partitie); perechea (numar de i-nod, numar de partitie) identifica in mod
+ unic un fisier intr-o instanta UNIX/Linux; fisierele sunt identificate
+ intern (in mecanismele interne) prin aceste numere de i-nod, iar extern
+ (in dialogul cu utilizatorul) prin nume cu cale (specificatori);
+ corespondenta intre acestea este retinuta in intrarile directoarelor
+ (o intrare retine o corespondenta nume - numar de i-nod);
+- directorul radacina (radacina arborelui sistemului de fisiere);
+- la sfarsit, fisiere si alte directoare.
+
+II.2. Implementarea fisierelor:
+-------------------------------
+
+ Probabil cel mai important aspect al implementarii stocarii fisierelor este
+pastrarea evidentei blocurilor de disc asociate fisierelor. Sunt folosite
+diverse metode:
+
+- ALOCAREA CONTINUA (CONTIGUOUS ALLOCATION): un fisier este stocat intr-un
+ sir continuu de blocuri (blocuri consecutive pe disc).
+
+  Avantaje:
+ * implementarea simpla - se retine doar adresa primului bloc si numarul de
+ blocuri;
+ * performanta mare - tot fisierul se poate citi intr-o singura operatie
+ (este necesara doar o singura operatie de localizare).
+
+  Dezavantaje:
+ * trebuie precizata de la inceput dimensiunea maxima a fisierului, pentru a
+ i se aloca spatiul necesar; cunoasterea exacta a dimensiunii pe care o va
+ avea fisierul in final nu este posibila insa decat rareori si atunci
+ trebuie estimata;
+  daca se da prea mica, exista riscul sa nu putem construi fisierul complet
+ (am putea face ca sistemul sa caute automat un spatiu liber mai mare, sa
+ copieze partea deja construita acolo si apoi sa continuam, dar performanta
+ are mult de suferit); daca se da prea mare (pentru siguranta), exista
+ riscul sa nu existe un spatiu continuu liber de dimensiunea dorita si deci
+ fisierul sa nu poata fi creat; 
+ * dupa mai multe creari si stergeri de fisiere discul devine fragmentat
+ (fragmentare externa) - va contine multe zone mici neadiacente, si atunci
+ nu vom putem crea un fisier mare chiar daca exista suficient spatiu liber;
+  se pot aplica operatii de compactare care muta fisierele (prin copierea
+ blocurilor) in scopul alipirii spatiilor libere, dar este neperformant.
+
+  Alocarea continua a fost folosita demult pentru discuri, datorita
+simplitatii si performantei la accesarea fisierelor; astazi este folosita
+la CD-ROM-uri - cand se inscriptioneaza fisierele pe un CD-ROM, dimensiunea
+lor este cunoscuta apriori si nu se mai modifica (CD-ROM-ul este readonly
+iar un CD-RW nu se poate suprascrie decat ca un tot, nu la nivel de fisier).
+
+- ALOCAREA CU LISTE INLANTUITE (LINKED LIST ALLOCATION): un fisier este
+ stocat intr-o lista inlantuita de blocuri; primul cuvant al fiecarui bloc
+ contine un pointer catre urmatorul bloc, restul blocului este destinat
+ datelor.
+
+  Avantaje:
+ * pot fi folosite toate blocurile; nu se mai pierde spatiu prin fragmentare
+ externa (ci doar prin fragmentarea interna din ultimul bloc al fisierelor);
+ * este suficient ca intrarea in director sa pastreze doar adresa primului
+ bloc (restul se afla din aproape in aproape pornind de la acesta).
+
+ Dezavantaje:
+ * accesul aleator este incet, deoarece pentru a ajunge la blocul n SO
+ trebuie sa porneasca de la primul bloc si sa parcurga pe rand cele n-1
+ blocuri dinaintea sa;
+ * intrucat pointerul la blocul urmator ocupa cativa octeti din bloc, zona
+ ramasa pentru date nu mai are dimensiunea o putere a lui 2; acest lucru
+ scade eficienta, deoarece aplicatiile in general citesc/scriu blocuri
+ logice de dimensiuni puteri ale lui 2 (deci datele unui bloc logic vor fi
+ impartite in doua blocuri fizice, incetinind accesul la ele).
+
+- ALOCAREA CU LISTE INLANTUITE FOLOSIND O TABELA IN MEMOPRIE: se obtine din
+ metoda precedenta mutand pointerii de la inceputul blocurilor de pe disc
+ intr-o tabela din memoria principala;
+  practic, in memoria principala exista o tabela numita FAT (FILE ALLOCATION
+ TABLE, rom. TABELA DE ALOCARE A FISIERELOR), avand cate o intrare pentru
+ fiecare bloc fizic de pe disc; daca dupa blocul B1 urmeaza logic (intr-o
+ lista) blocul B2, atunci in intrarea FAT a lui B1 se afla indicele intrarii
+ FAT a lui B2 (se eventuale alte informatii); daca dupa un bloc nu urmeaza
+ logic nici un alt bloc, in intrarea sa FAT se afla un marcator special
+ (de ex. -1); blocurile propriuzise nu mai contin pointerii catre succesorii
+ logici; in director, pentru fiecare fisier, se poate retine doar numarul
+ blocului de start;
+  exemplu:
+             Fisierul A        Fisierul B                      Bloc
+             incepe aici       incepe aici                     nefolosit
+                       |       |                                   |
+                       V       V                                   V
+     -----------------------------------------------------------------
+     |   |   | 10| 11| 7 |   | 3 | 2 |   |   | 12| 14| -1|   | -1|   |
+     -----------------------------------------------------------------
+bloc   0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15
+fizic
+
+  fisierul A foloseste in ordine blocurile 4, 7, 2, 10, 12,
+  fisierul B foloseste in ordine blocurile 6, 3, 11, 14.
+
+ Avantaje:
+ * intregul bloc este destinat pastrarii datelor (nu mai contine pointerul
+ catre blocul urmator);
+ * accesul aleator este usurat - cu toate ca si acum trebuie parcurs lantul
+ pentru a gasi o locatie intr-un fisier (parcurgerea se face de la blocul
+ al carui numar este scris in director in dreptul numelui fisierului),
+ parcurgerea se face doar in memorie fara nici o referire la disc.
+
+ Dezavantaje:
+ * tabela trebuie mentinuta in memorie tot timpul, iar ea poate fi foarte
+ mare; exemplu: daca discul are 20GB si blocurile au 1KB, tabela FAT are
+ 20 * 2^20 = intrari; pentru memorarea numerelor 0 ... 20*2^20-1 sunt
+ necesari 25 biti, deci pentru eficienta o intrare in FAT ar trebui sa aibe
+ 4 octeti; astfel, tabela FAT ar ocupa 4*20*2^20 = 80 MB;
+   tabela FAT poate fi stocata si in memoria paginabila, dar si atunci ar
+ fi inconveniente, deoarece ar ocupa multa memorie virtuala si spatiu pe
+ disc, plus ca ar genera un trafic de paginare suplimentar (in urma
+ defectelor de pagina).
+
+- I-NODURI (I-NODES): fiecarui fisier ii este asociata o structura de date
+ numita I-NOD (INDEX-NOD) (engl. I-NODE (INDEX-NODE)), care pastreaza
+ atributele si adresele pe disc ale blocurilor ce apartin fisierului, si
+ care se afla pe disc, fiind incarcata in memorie cand fisierul este
+ accesat; in director, pentru fiecare fisier, se poate retine doar numarul
+ i-nodului asociat;
+
+ Avantaje:
+ * un i-nod trebuie sa fie in memorie doar cand fisierul respectiv este
+ accesat; astfel, daca tabela FAT avea o dimensiune proportionala cu
+ dimensiunea discului, vectorul cu i-nodurile fisierelor accesate are o
+ dimensiune proportionala cu numarul maxim de fisiere ce pot fi accesate
+ simultan (si care poate fi specificat prin SO, indiferent de dimensiunea
+ discului).
+
+ Dezavantaje:
+ * in i-nod incap un numar fixat de intrari ce refera blocuri pe disc;
+ atunci ce se intampla daca fisierul creste peste o anumita limita ?
+   o solutie este rezervarea ultimilor intrari pentru a referi nu blocuri
+ de date ci blocuri cu adresele altor blocuri de date, sau chiar blocuri
+ cu adrese de blocuri cu adrese.
+
+ Exemplu de i-nod din UNIX:
+
+ i-nod
+ ------------------------
+ | Atributela fisierului|
+ -----------------------|
+ |    Adresa bloc       ---> primul bloc al fisierului
+ -----------------------|
+ |    Adresa bloc       ---> al doilea bloc al fisierului
+ -----------------------|
+ |    Adresa bloc       --->
+ -----------------------|
+ |          .           |
+ |          .           |       Bloc de indirectare
+ |          .           |       simpla
+ |          .           |       ---------------
+            .                 ->| Adresa bloc --->
+ |          .           |     | --------------|
+ |          .           |     | |      .      |
+ |          .           |     |        .
+ |          .           |     | 
+ -----------------------|     |    Bloc de indirectare   Bloc de indirectare
+ |    Adresa bloc       --->  |    dubla                 simpla
+ -----------------------|     |    -------------------   ---------------
+ | Adresa bloc pointeri -------  ->|Adr.bloc pointeri--->| Adresa bloc --->
+ ------------------------        | ------------------|   --------------|
+ | Adresa bloc pointeri ---------- |        .        |   |      .      |
+ ------------------------                   .                   .
+ | Adresa bloc pointeri -------
+ ------------------------     |
+                              |
+                              |
+    ---------------------------
+    |
+    | Bloc de indirectare   Bloc de indirectare   Bloc de indirectare
+    | tripla                dubla                 simpla
+    | -------------------   -------------------   ---------------
+    ->|Adr.bloc pointeri--->|Adr.bloc pointeri--->| Adresa bloc --->
+      -------------------   -------------------   ---------------
+      |        .        |   |        .        |   |      .      |
+               .                     .                   .
+
+  atributele se refera la: dimensiunea fisierului, momentul crearii, al
+ ultimului acces, al ultimei modificari, utilizatorul proprietar, grupul
+ preferential al proprietarului, protectie (prezenta/absenta dreptului de
+ citire, scriere sau executie pentru proprietar, cei din grupul
+ proprietarului diferiti de proprietar, restul - in total 9 biti),
+ numarul de legaturi fizice (numarul de intrari de director ce pointeaza
+ acest i-nod);
+  dupa atribute, urmatoarele intrari ale i-nodului (10 in UNIX V7) contin
+ adresele primelor blocuri ale fisierelor (in ordinea inlantuirii); daca
+ intrarile destinate acestui scop nu sunt sufieciente, se foloseste
+ urmatoarea intrare, care pointeaza un BLOC DE INDIRECTARE SIMPLA (SINGLE
+ INDIRECT BLOCK), ale carui intrari pointeaza alte blocuri ale fisierului;
+ daca nici acestea nu sunt suficiente, se foloseste urmatoarea intrare, care
+ pointeaza un BLOC DE INDIRECTARE DUBLA (DOUBLE INDIRECT BLOCK), ale carui
+ intrari pointeaza blocuri de indirectare simpla; de asemenea, exista si o
+ intrare destinata pointarii unui BLOC DE INDIRECTARE TRIPLA (TRIPLE
+ INDIRECT BLCOK);
+  astfel, pentru fisierele mici sunt suficiente primele intrari ale
+ i-nodului si accesul la blocuri se face rapid (dupa putine referiri).
+
+Terminologie (cf. Wikipedia):
+
+ In stocarea informatiei pe calculator, termenul FRAGMENTARE desemneaza
+un fenomen in care spatiul de stocare este utilizat ineficient, reducandu-se
+capacitatea de stocare; uneori desemneaza insusi spatiul irosit.
+
+ Exista trei forme de fragmentare:
+
+- FRAGMENTAREA INTERNA (INTERNAL FRAGMENTATION): apare cand spatiul de
+ stocare este alocat fara intentia de a-l folosi (acest spatiu este irosit);
+ termenul "intern" se refera la faptul ca spatiul nefolosibil este in
+ interiorul zonei alocate, dar nu este folosit;
+  uneori fragmentarea interna este acceptata in schimbul simplitatii sau
+ performantei;
+  exemple:
+ * spatiul irosit la sfarsitul ultimului bloc (cluster) alocat unui fisier
+  (s.n. "file slack" sau "slack space");
+ * fisierele text utilizeaza caractere din setul ASCII restrans (coduri de
+  la 0 la 127); acestea necesita doar 7 biti pentru stocare, si totusi sunt
+  stocate pe cate un octet (se iroseste 1 bit per caracter);
+
+- FRAGMENTAREA EXTERNA (EXTERNAL FRAGMENTATION): este fenomenul in care
+ spatiul de stocare liber devine de-a lungul timpului impartit in multe
+ bucati mici (astfel nu pot fi satisfacute cererile de zone continue de o
+ anumita dimensiune, chiar daca per total exista spatiu liber suficient);
+ termenul "extern" se refera la faptul ca spatiul nefolosibil este in afara
+ zonelor alocate;
+  apare atunci cand sunt alocate si dezalocate zone de diverse dimensiuni,
+ iar algoritmul de alocare face ca zonele ocupate si libere sa ramana
+ intercalate;
+  exemple:
+ * intr-un sistem de alocare dinamica a memoriei, daca cea mai mare
+  dimensiune a unui bloc (continuu) liber este 300 octeti si exista 10
+  asemenea blocuri, cererea unui bloc de 1000 octeti va esua, desi in
+  sistem sunt cel putin 3000 octeti liberi;
+ * in sistemele de fisiere, daca mai multe fisiere, de dimensiuni diferite,
+  sunt create, redimensionate, sterse, poate aparea fragmentare externa;
+  daca sistemul de fisiere foloseste alocarea cu liste inlantuite,
+  fragmentarea externa nu impiedica valorificarea intergrala a spatiului
+  liber, deoarece un nou fisier poate fi impartit in mai multe bucati
+  neadiacente, dar accesarea unui asemenea fisier se va face mai greu (a
+  se vedea mai jos); efectul de fragmentare externa este inrautatit atunci
+  cand se sterge un fisier mare alocat in foarte multe zone mici neadiacente; 
+
+- FRAGMENTAREA DATELOR (DATA FRAGMENTATION): apare cand un continut de date
+ aflat in memorie este spart in mai multe parti distantate una de alta;
+  in mod tipic, este rezultatul incercarii de a stoca un obiect mare intr-un
+ sistem de stocare care deja sufera de fragmentare externa;
+  exemple:
+ * intr-un sistem de fisiere fragmentat, cand se creaza un fisier nou sau se
+  extinde un fisier existent noile blocuri alocate sunt imprastiate (nu sunt
+  alaturate) si astfel accesul la fisier este incetinit, din cauza timpului
+  de cautare si a intarzierii de rotatie a capului de citire/scriere;
+  aceasta s.n. FRAGMENTAREA SISTEMULUI DE FISIERE;
+ * daca nodurie unei liste inlantuite sunt alocate consecutiv in memorie,
+  creste localizarea referintelor (locality of reference) si performanta
+  caching-ului datelor la parcurgerea listei (noduri invecinate logic se
+  gasesc cu probabilitate mare in acelasi tampon); daca spatiul liber este
+  fragmentat, nodurile noi vor fi imprastiate in memorie, crescand numarul
+  de erori de cache.
+
+ Fragmentarea externa poate fi eliminata prin COMPACTARE (COMPACTION), i.e.
+realocarea zonelor ocupate la un capat al memoriei, pentru a obtine un
+singur bloc, mare, de memorie libera.
+
+ Fragmentarea datelor poate fi eliminata prin rearanjarea zonelor de stocare
+a datelor a.i. partile inrudite sa fie apropiate. De ex. un instrument de
+DEFRAGMENTARE rearanjaza blocurile pe disc a.i. blocurile unui acelasi
+fisier sa fie unul in continuarea celuilalt (contiguous); de regula el
+incearca sa reduca sau sa elimine si fragmentarea spatiului liber.
+
+II.3. Implementarea directoarelor:
+----------------------------------
+
+ Cand deschidem un fisier, il indicam catre SO prin specificator, care in
+principiu contine cale si nume; SO foloseste calea pentru a localiza
+directorul parinte, cauta in el intrarea ce contine numele, iar din acea
+intrare gaseste informatia necesara localizarii blocurilor pe disc asociate
+fisierului; in functie de sistem, aceasta informatie poate consta din:
+adresa pe disc a intregului fisier (alocarea continua), numarul primului
+bloc (ambele scheme de alocare cu liste inlantuite), numarul i-nodului
+(cazul folosirii i-nodurilor).
+ Atributele fisierelor sunt pastrate, tot in functie de sistem, fie in
+intrarile de director asociate, fie in i-noduri.
+
+ Structura unei intrari de director depinde de tipul de sistem de fisiere;
+exemple:
+
+- Intrari de lungime fixa, fiecare putand contine (in functie de sistem):
+ * nume de fisier/director copil (de lungime fixa), o structura de atribute,
+   una sau mai multe adrese de blocuri pe disc (pana la un anumit maximum);
+   se intalneste in MS-DOS, Windows;
+ * nume de fisier/director copil, numar de i-nod;
+   se intalneste in UNIX, Linux;
+
+  In aceasta abordare, numele fisierelor au o lungime maxima; de ex.:
+ * in MS-DOS fisierele au un nume propriuzis de 1-8 caractere si o extensie
+ de 0-3 caractere (8.3 file name);
+ * in UNIX V7 fisirele au un nume de 1-14 caractere (ce pot fi orice carater
+ ASCII diferit de "/" si de NUL (caracterul de cod 0));
+
+  Pentru a putea lucra cu nume lungi, putem rezerva in fiecare intrare de
+ director un spatiu mai mare, de regula 255 caractere.
+  Dezavantaj: se iroseste mult spatiu de stocare in director, deoarece
+ putine fisiere au nume lungi.
+
+- Intrari de lungime variabila, formate din:
+ * o portiune de lungime fixa, continand lungimea intrarii, apoi diverse
+ informatii cu format fix (proprietar, momentul crearii, protectie, alte
+ atribute);
+ * numele fisierului/directorului copil (oricat de lung), terminat cu
+ caracterul NUL; numele se poate completa (cu caractere de umplere) pana la
+ un numar intreg de cuvinte (pentru ca fiecare intrare de director sa fie
+ aliniata la inceput de cuvant).
+
+  Dezavantaj: la eliminarea unei intrari (unlink), ramane un spatiu liber
+ de dimensiune variabila, in care urmatorea legatura inserata sa nu aibe
+ loc (fragmentare externa); directorul insa se poate compacta usor, deoarece
+ el este incarcat in intregime in memorie.
+
+- Intrari de lungime fixa, pastrand numele fisierelor/directoarelor copil
+ intr-o MOVILA (HEAP) la sfarsitul directorului (fiecare intrare contine
+ cate un pointer catre inceputul numelui corespunzator);
+
+  Astfel, dupa eliminarea unei intrari, o intrare noua va incapea mereu in
+ locul ei; movila insa trebuie intretinuta, si pot aparea defecte de pagina
+ in timpul procesarii ei; un mic avantaj este ca numele nu trebuie sa
+ inceapa aliniate la nivel de cuvant, deci nu mai sunt necesare caractere de
+ umplere.
+ 
+ In toate abordarile de mai sus, directorul este parcurs liniar, de la
+inceput spre sfarsit, pentru gasirea unui fisier/subdirector.
+ Viteza de cautare poate fi marita prin folosirea unei tabele de dispersie
+in fiecare director:
+ * presupunem ca dimensiunea tabelei este n;
+ * fiecarei intrari i se asociaza un numar i din intervalul 0, ..., n-1 dupa
+  o regula fixata (ex: se imparte lungimea numelui la n si se ia restul);
+  i s.n. valoare de dispersie; apoi intrarea respectiva de director se
+  insereaza intr-o lista inlantuita al carui inceput este pointat de
+  intrarea i a tabelei de dispersie;
+ * cand se cauta un nume in director, i se calculeaza dupa regula respectiva
+  valoarea de dispersie, valoarea de dispersie se foloseste ca indine in
+  tabela de dispersie pentru a identifica o lista, apoi numele se cauta in
+  lista; daca nu este gasit in lista, numele nu figureaza in director.
+ Folosirea tabelei de dispersie are avantajul unei viteze de cautare mari
+si dezavantajul unei administrari mai complicate. Este utila doar cand este
+de asteptat ca in mod uzual directoarele sa aibe sute sau mii de intrari.
+
+ O alta metoda de crestere a vitezei de cautare in directoare mari este
+pastrarea rezultatelor cautarilor anterioare intr-un cache; orice noua
+cautare a unui nume incepe cu o scanare a cache-ului - daca este acolo,
+el va fi localizat imediat. Aceasta metoda este utila atunci cand un numar
+mic de fisiere fac obiectul majoritatii cautarilor.
+
+III. Sistemul de fisiere virtual:
+---------------------------------
+
+  Adesea, prin sistem de fisiere se intelege doar ansamblul de informatii
+sub forma caruia este stocata colectia de fisiere pe un suport de memorie
+(ex. disc), nu si mecanismele din SO folosite pentru a o manevra; in functie
+de modul de organizare a acestor informatii, exista mai multe tipuri de
+sistem de fisiere: FAT32, NTFS, ext3, etc. De multe ori numele acestor
+tipuri de sistem de fisiere este asimilat/inlocuit cu numele primului SO
+care le-a folosit - de ex. sistemul de fisiere FAT se mai numeste sistemul
+de fisiere (de la) MS-DOS.
+ Unele SO suporta (prin mecanismele incorporate) doar un singur tip de
+sistem de fisiere, altele mai multe - de ex. Linux, unele variante de UNIX,
+suporta: FAT (de la MS-DOS), FAT32 (de la Windows 95 versiunea 2 si Windows
+98), NTFS (de la Windows NT), ext3 (sistemul nativ al Linux).
+ Acest lucru este posibil prin introducerea conceptului de SISTEM DE FISIERE
+VIRTUAL (VRITUAL FILE SYSTEM).
+
+ Gestionarul de fisiere este construit deasupra unui model de fisier
+abstract care este livrat (exportat)de componenta VFS (VIRTUAL FILE SYSTEM).
+
+ VFS implementeaza operatii independente de sistemul de fisiere; SO
+integreaza extensii ale VFS ce adauga operatiile dependente de anumite
+tipuri de sistem de fisiere; de ex. versiunea 2.x a VFS suporta formatele
+MS-DOS, MINIX, /proc, ext3, etc.
+
+ Esenta VFS este COMUTATORUL (SWITCH); el ofera:
+- o interfata cu programele utilizator (API), care livreaza acestora modelul
+ de fisier abstract si operatiile corespunzatoare;
+- o interfata interna folosita de translatoare.
+ Un TRANSLATOR integreaza suportul pentru un anumit tip de sistem de fisiere
+concret (FAT32, ext3, etc); el implementeaza operatiile dependente de
+sistemul de fisiere respectiv (strategia de organizare a informatiei pe
+disc, citirea/scriere proprietatilor discului, a structurilor de informatii
+asociate fisierelor (numite acum DESCRIPTORI EXTERNI) (ex. i-nodurile),
+a blocurilor de date ale fisierelor, etc.).
+ Suportul pentru un nou tip de sistem de fisiere este adaugat sub forma unui
+nou translator.
+
+Exemplu: comutatorul VFS din Linux:
+
+         ------------------------------------------------------------
+         |         Linux File Manager System Call Interface         |
+         ------------------------------------------------------------
+         ------------------------------------------------------------
+         |                      --------------                      |
+         |                      | VFS Switch |                      |
+         |                      --------------                      |
+         |                             |                            |
+         |      ----------------------------------------------      |
+         |      |              |              |              |      |
+         |-------------  -------------  -------------  -------------|
+         ||   MS-DOS  |  |   MINIX   |  |    Ext3   |  |   /proc   ||
+         ||File System|  |File System|  |File System|  |File System||
+         |-------------  -------------  -------------  -------------|
+         ------------------------------------------------------------
+
+ Modelul abstract de fisier livrat de VFS este inspirat de UNIX; in
+particular, orice asemenea fisier abstract are asociata o structura
+cu informatii (DESCRIPTOR INTERN), asemanatoare i-nodurilor si care s.n.
+V-NOD (V-NODE); v-nodul are propriul lui format, adaptat abordarii
+sistemului de fisiere multiplu.
+ Cand un fisier este deschis, translatorul folosit converteste continutul
+descriptorului extern in formatul VFS V-NODE, si il scrie in v-nodul
+asociat acestuia ca fisier abstract; cand fisierul este inchis, continutul
+v-nodului este folosit pentru a actualiza descriptorul extern.
+ Un v-nod contine informatii privind drepturile de acces, proprietarul,
+grupul acestuia, dimensiunea, momentul crearii, momentul ultimei accesari,
+momentul ultimei modificari, etc. si un spatiu pentru mecanismul de pointeri
+pe care sistemul de fisiere concret il foloseste pentru a organiza blocurile
+pe disc, chiar daca VFS nu stie cum vor fi organizati acesti pointeri
+(acesta informatie este incapsulata in translatorul folsit).
+
+ VFS suporta si directoare, presupunand ca directoarele externe contin
+in fiecare intrare cel putin un nume si o adresa de descriptor extern
+(aproape toate tipurile de sistem de fisiere ofera aceast minim de
+informatie).
+
+ VFS presupune o structura minima a organizarii discului, astfel:
+- primul sector de pe disc este un BLOC DE BOOT (BOOT BLOCK), continand
+ un program de incarcare a SO; sistemul de fisiere nu foloseste blocul
+ de boot, doar presupune existenta lui;
+- exista un SUPERBLOC (SUPERBLOCK), continand informatii specifice
+ discului, de ex. numarul de octeti dintr-un bloc;
+- exista pe disc DESCRIPTORI EXTERNI (sau DESCRIPTORI DE FISIERE EXTERNE),
+ care descriu caracteristicile fiecarui fisier;
+- exista BLOCURI DE DATE, care sunt legate la diverse fisiere pentru a
+ contine datele acestora.
+
+ Inainte ca VFS sa poata lucra cu un tip particular de sistem de fisiere,
+trebuie scris un translator pentru acel tip si apoi inregistrat in VFS.
+Functia VFS "register_filesystem()" informeaza VFS despre informatiile de
+baza de care va avea nevoie, inclusiv numele tipului de sistem de fisiere
+si punctul de intrare al functiei "read_super()" a sistemului de fisiere
+care va fi utilizata cand sistemul de fisiere este montat logic.
+
+
+TODO:
+- fisiere partajate, gestiunea spatiului pe disc (dimensiunea blocurilor,
+ administrarea blocurilor libere, cota pe disc), fiabilitatea sistemului de
+ fisiere (copii de siguranta, consistenta sistemului de fisiere),
+ performanta sistemului de fisiere (folosirea memoriei intermediare, citirea
+ blocurilor in avans, reducerea miscarilor capului de citire/scriere a
+ discului), sisteme de fisiere cu structura de jurnal;
+- exemple de sisteme de fisiere: sisteme de fisiere pentru CD-ROM,
+ MS-DOS, Windows, UNIX, Linux;
+
+Cazul UNIX/Linux (apeluri sistem pentru manevrarea fisierelor si
+ directoarelor) - este acoperit de materialele de laborator.
+
+
+Dragulici Dumitru Daniel,
+Facultatea de matematica si informatica,
+Universitatea Bucuresti,
+2008

@@ -1,0 +1,1869 @@
+Cursul 7 - Planificare, Interblocare
+====================================
+
+I. Planificare
+~~~~~~~~~~~~~~
+
+ In cadrul mutiprogramarii, mai multe procese pot concura simultan pentru
+controlul unui procesor. Alegerea procesului care va rula in continuare
+este facuta de o componenta a SO numita PLANIFICATOR (SCHEDULER), pe baza
+unui ALGORITM DE PLANIFICARE (SCHEDULING ALGORITHM).
+ Multe dintre problemele planificarii proceselor apar si la thread-uri.
+ Tratam pentru inceput planificarea proceselor.
+
+I.1. Introducere in problema planificarii:
+------------------------------------------
+
+ La sistemele de prelucrare pe loturi, cu intrari sub forma imaginilor de
+cartele stocate pe benzi magnetice, algoritmul de planificare era simplu:
+se executa urmatoarea operatie de pe banda.
+
+ Odata cu sistemele cu divizarea timpului (timesharing systems), algoritmul
+de planificare a devenit mai complex, deoarece in general erau mai multi
+utilizatori care asteptau un serviciu. Anumite calculatoare mari inca mai
+combina prelucrarea pe loturi cu divizarea timpului, cerand planificatorului
+sa decida daca controlul revine unui lot de operatii sau unui utilizator de
+la un terminal (un lot de operatii ar putea fi o cerere de a executa
+succesiv mai multe programe, dar in cele ce urmeaza vom presupune ca este
+o cerere de a executa un singur program). Pe aceste masini tipul de alocare
+a procesorului este o resursa limitata, deci performanta planificatorului
+este importanta.
+
+ Odata cu aparitia calculatoarelor personale numarul de procese concurente
+a devenit mai mic (de multe ori era unul singur), deci planificatorul nu
+avea prea multe de facut, iar calculatoarele au devenit mai rapide, a.i.
+capacitatea procesorului nu mai era o resursa limitata. In plus, daca
+doua procese ruleaza simultan (de ex. un procesor de texte si un program
+de calcul tabelar) conteaza mai putin care se executa primul, deoarece
+utilizatorul probabil asteapta sa se termine ambele.
+
+ In cazul statiior de lucru si serverelor de retea de nivel inalt avem din
+nou multe procese in competitie pentru procesor, a.i. planificarea este din
+nou importanta. De ex. daca sistemul are de ales intre un proces ce
+redeseneaza ecranul dupa ce utilizatorul a inchis o fereastra si un proces
+care trimite posta electronica din coada de asteptare, planificarea este
+importanta pentru felul in care este perceput raspunsul - daca inchiderea
+ferestrei ar fi intarziata 2 sec. pana se trimite posta, utilizatorul ar
+considera sistemul lent, pe cand intarzierea postei cu 2 sec. nu ar fi
+perceptibila.
+
+ Pe langa alegerea corecta a procesului ce trebuie executat, comutarea
+intre procese este costisitoare - prea multe comutari de proces pe secunda
+pot consuma mult timp procesor.
+
+Comportamentul proceselor
+-------------------------
+
+ In general procesele alterneaza intre calcule in rafala si cereri de
+operatii de I/O. Se considera I/O in sens propriu acele situatii cand
+procesul se blocheaza asteptand ca un dispozitiv extern sa-si termine
+sarcina.
+ Procesele care isi petrec majoritatea timpului efectuand calcule s.n.
+procese LIMITATE DE CALCULE (COMPUTE-BOUND); ele au in general rafale
+de utilizare a procesorului lungi si perioade de asteptare a operatiilor
+de I/O rare.
+ Procesele care isi petrec majoritatea timpului asteptand completarea
+operatiilor de I/O  s.n. procese LIMITATE DE I/O (I/O-BOUND); ele au in
+general rafale procesor scurte si perioade de asteptare a operatiilor de
+I/O frecvente.
+ Factorul cheie este lungimea rafalei procesor, nu lungimea rafalei I/O;
+procesele limitate de I/O sunt asa pentru ca nu efectueaza multe calcule
+intre cererile de I/O, nu pentru ca au cereri I/O lungi. Aceeasi perioada
+este necesara citirii unui bloc de pe disc, indiferent cat dureaza
+procesarea datelor citite.
+
+
+proces limitat de calcule:
+
+#############-----##############---#########-----################
+    ^                                         ^
+    |                                         |
+  rafala procesor lunga             se asteapta operatii I/O
+
+proces limitat de I/O:
+
+###-----##-----#-----#-----##----##-----####---#-----##----#----#
+        ^                                         ^
+        |                                         |
+  rafala procesor scurta                se asteapta operatii I/O
+
+
+ La ora actuala, performantele procesoarelor se imbunatatesc mai rapid
+decat cele ale discurilor, a.i. procesele tind sa devina tot mai limitate de
+I/O; de aceea devine tot mai importanta planificarea proceselor limitate de 
+I/O - daca un proces orientat pe I/O doreste sa se execute, ar trebui sa
+obtina acest lucru rapid pentru a-si putea efectua cererile catre disc,
+mentinand astfel discul ocupat.
+
+Cand sa planificam
+------------------
+
+Cand se iau decizii de planificare - exemple:
+- Cand se creaza un proces nou, pe cine rulam: parintele sau copilul (ambele
+ sunt in starea ready) ?
+- Cand se termina un proces, pe cine alegem ? Daca nu mai exista procese,
+ de regula se ruleaza un proces inactiv al sistemului.
+- Cand un proces se blocheaza la o operatie de I/O, la un semafor, etc.,
+ pe cine alegem ? Uneori motivul blocarii este important in decizie - de
+ ex. daca A este un proces important care asteapta un proces B sa iasa din
+ regiunea critica, rularea lui B va perimite acestuia sa iasa din regiunea
+ critica si astfel lui A sa continue. Problema este ca in general
+ planificatorul nu cunoaste aceste dependente.
+- Cand apare o intrerupere de la un dispozitiv de I/O care si-a terminat
+ sarcina, un proces care era blocat in asteptarea operatiei ar putea fi
+ acum ready si trebuie decis daca se ruleaza acest proces, daca se continua
+ procesul aflat curent in executie, daca trebuie rulat un alt proces.
+- daca un ceas hardware furnizeaza intreruperi periodice, se pot lua decizii
+ de planificare la fiecare intrerupere sau la fiecare k intreruperi; dupa
+ modul cum trateaza intreruperile de ceas, algoritmii de planificare sunt de
+ doua categorii:
+  * algoritmi NON-PREEMTIVI: aleg un proces pentru executie si il lasa sa
+   ruleze pana se blocheaza (fie la o operatie I/O, fie in asteptarea altui
+   proces), sau pana cand procesul renunta voluntar la procesor; in timpul
+   intreruperilor de ceas nu se iau decizii de planificare - dupa ce s-a
+   terminat procesarea intreruperii, procesul care rula inainte este reluat;
+  * algoritmi PREEMPTIVI: aleg un proces si il lasa sa ruleze o durata
+   maxima fixata; daca procesul este inca in executie la sfarsitul
+   intervalului de timp (nu s-a blocat), este intrerupt si ales alt proces
+   (daca exista);
+ planificarea preemptiva necesita aparitia unei intreruperi de ceas la
+ sfarsitul intervalului de timp mentionat, pentru a reda controlul
+ planificatorului; daca nu exista ceas, singura posibilitate este
+ planificarea non-preemptiva.
+
+Categorii de algoritmi de planificare
+-------------------------------------
+
+ Diverse tipuri de aplicatii si SO au scopuri diferite, a.i. medii diferite
+necesita algoritmi de planificare diferiti (care optimizeaza lucruri
+diferite). Distingem urmatoarele medii:
+ - PRELUCRARE PE LOTURI;
+ - INTERACTIVE;
+ - IN TIMP REAL.
+
+ In sistemele de prelucrare pe loturi nu exista utilizatori care asteapta
+nerabdatori un raspuns rapid la terminalele lor, a.i. sunt acceptabili
+algoritmi non-preemptivi sau preemptivi cu perioade lungi pentru fiecare
+proces - aceasta abordare diminueaza comutarea proceselor si creste
+performanta.
+ In sistemele interactive algoritmii preemptivi sunt esentiali pentru a
+evita ca un proces sa ocupe total procesorul si sa nu permita altora sa
+foloseasca serviciile acestuia (chiar daca nu o face cu intentie ci este
+din cauza unei erori de program).
+ In sistemele cu constrangeri de timp real algoritmii preemptivi nu sunt
+mereu necesari, deoarece procesele stiu ca nu pot rula mult timp si ca atare
+isi efectueaza sarcina si se blocheaza rapid (aici sunt prezente doar
+programe dedicate unui scop precis, pe cand sistemele interactive au un scop
+general si pot rula programe arbitrare, care nu sunt cooperante sau sunt
+chiar rau intentionate).
+
+Scopurile algoritmilor de programare
+------------------------------------
+
+Scopurile depind de mediu, dar unele sunt comune:
+
+- Toate sistemele:
+
+ (1) ECHITATE (FAIRNESS): fiecare proces primeste o capacitate echitabila
+                        de utilizare a procesorului;
+ (2) RESPECTAREA POLITICILOR (POLICY ENFORCEMENT): politica declarata
+                        trebuie respectata;
+ (3) ECHILIBRU (BALANCE): mentinerea ocupata a tuturor partilor sistemului;
+
+(1) - procese comparabile trebuie sa beneficieze de servicii comparabile;
+  diferite categorii de procese pot fi insa tratate diferit - ex. controlul
+  sigurantei si procesarea statelor de plata la o centrala nucleara);
+(2) - de ex. daca politica locala este ca procesele de control a sigurantei
+  se executa cand doresc, chiar daca statele intarzie 30 sec. planificatorul
+  trebuie sa se asigure ca aceasta politica este respectata;
+(3) - de ex. intr-un sistem de prelucrare pe loturi planificatorul
+  controleaza ce sarcini sunt aduse in memorie pentru executie si este de
+  preferat sa se incarce un proces orientat pe calcule impreuna cu unul
+  orientat pe I/O, deoarece atunci si procesorul si discul vor fi ocupate;
+  daca sunt aduse intai procesele limitate de calcule si apoi cele limitate
+  de I/O, intai primele vor intra in competitie pentru procesor, mergand mai
+  lent si lasand discul inactiv, apoi celelalte vor concura pentru accesul
+  la disc lasand procesorul inactiv; e bine sa fie tinut tot sistemul ocupat
+  folosind o combinatie atent aleasa de procese.
+
+- Sisteme de prelucrare pe loturi (BATCH SYSTEMS):
+
+ (1) PRODUCTIVITATE (THROUGHPUT): maximizarea numarului de sarcini pe ora;
+ (2) TIMP DE RASPUNS (TURNAROUND TIME): minimizarea timpului intre
+                        introducerea sarcinii si terminarea ei;
+ (3) GRADUL DE UTILIZARE A PROCESORULUI (CPU UTILIZATION): mentinerea
+                        procesorului ocupat tot timpul;
+
+(1), (2) si (3) sunt metrici dupa care se orienteaza gestionarii unui centru
+ de calcul; evident (1) trebuie sa fie cat mai mare iar (2) cat mai mic;
+(2) este timpul mediu, calculat statistic, intre momentul cand o sarcina
+ este introdusa insistem si momentul completarii ei; arata cat de mult
+ asteapta datele de iesire utilizatorul mediu;
+maximizarea (1) nu inseamna neaparat minimizarea (2); de exemplu un
+ planificator care ruleaza mai intai sarcinilie scurte si n-a rulat inca
+ sarcinile lungi ar avea o productivitate buna (multe sarcini scurte pe
+ ora), dar pentru sarcinile lungi s-ar obtine un timp de raspuns foarte
+ mare; daca sarcinile scurte continua sa soseasca cu o rata constanta,
+ sarcinile lungi s-ar putea sa nu ruleze niciodata (rezulta un timp mediu de
+ raspuns infinit, desi productivitatea e mare);
+(3) este important, deoarece la calculatoarele mari (unde sunt instalate
+ sistemele de prelucrare pe loturi) capacitatea procesorului este scumpa,
+ iar gestionarii centrelor de calcul se simt vinovati daca UCP nu este
+ folosit tot timpul;
+metricile importante sunt (1) si (2), (3) nu este o metrica foarte buna.
+
+- Sisteme interactive (INTERACTIVE SYSTEMS):
+
+ (1) TIMP DE RASPUNS (RESPONSE TIME): raspuns rapid la cereri;
+ (2) PROPORTIONALITATE (PROPORTIONALITY): indeplinirea asteptarilor
+                        utilizatorului;
+
+(1) - este timpul intre introducerea unei comenzi si obtinerea rezultatului;
+ la un calculator personal procesarea cererilor interactive (lansarea unui
+ program, deschiderea unui document, etc.) trebuie sa aibe prioritate
+ asupra activitatilor de fundal (de ex. citirea si stocarea postei
+ electronice de pe retea) - aceasta va fi perceputa ca performanta buna a
+ sistemului;
+(2) - utilizatroii au o idee proprie, uneori gresita, despre cat ar trebui
+ sa dureze anumite actiuni; de ex. considera ca obtinerea unei conexiuni
+ la Internet printr-un modem trebuie sa dureze mai mult decat inchiderea
+ conexiunii, si de aceea nu protesteaza daca la click pe pictograma ce
+ stabileste conexiunea aceasta se stabileste in 45 sec., dar protesteaza
+ daca la click pe pictograma ce inchide conexiunea aceasta se inchide in
+ 30 sec.; in acest caz planificatorul nu poate face nimic in privinta
+ timpului de raspuns, dar uneori interventia sa este posibila, mai ales cand
+ intarzierea este cauzata de o alegere nepotrivita a ordinii proceselor;
+
+- Sisteme in timp real (REAL-TIME SYSTEMS):
+
+ (1) RESPECTAREA TERMENELOR (MEETING DEADLINES): evitarea pierderii datelor;
+ (2) PREDICTIBILITATE (PREDICTABILITY): evitarea degradarii calitatii in
+                        cazul sistemelor multimedia;
+
+(1) - in sistemele in timp real exista termene ce trebuie respectate; de ex.
+ daca un calculator controleaza un dispozitiv ce produce date cu o rata
+ constanta, esecul in a rula la timp procesul ce colecteaza datele poate
+ cauza pierderea acestora; de aceea prima cerinta intr-un asemenea sistem
+ este respectarea tuturor (sau majoritatii) termenelor;
+(2) - in unele sisteme in timp real, de ex. cele multimedia, ratarea
+ ocazionala a unor termene  - de ex. cadre video capturate omise - nu este
+ fatala, dar daca se intampla prea des calitatea materialului audio/video
+ se deterioreaza rapid (mai ales cel audio - urechea este mai sensibila la
+ zgomot ca ochiul); de aceea planificarea trebuie sa fie foarte predictibila
+ si regulata.
+
+I.2. Planificarea in sistemele de prelucrare pe loturi:
+-------------------------------------------------------
+
+ Prezentam cativa algoritmi de planificare folositi in sistemele de
+prelucrare pe loturi (unii sunt folositi si in sistemele interactive):
+
+Primul-Venit Primul-Servit (First-Come First-Served):
+-----------------------------------------------------
+
+Algoritm:
+- procesorului ii este asociata o coada de asteptare (lista simplu
+ inlantuita) in care sunt introduse procesele ce trebuie executate pe
+ acesta;
+- cand soseste o noua sarcina (proces), ea este inserata la sfarsitul (baza)
+ cozii;
+- planificatorul extrage procesul de la inceputul (varful) cozii si ii
+ aloca procesorul pe termen nelimitat, pana procesul se termina sau
+ se blocheaza (algoritmul este non-preemptiv); daca procesul s-a blocat,
+ este inserat la sfarsitul cozii; apoi se extrage din nou procesul de la
+ inceputul cozii, etc.
+
+Avantaje:
+- usor de inteles si implementat;
+- este echitabil (fair), in sensul ca sarcinile venite mai devreme sunt
+ tratate primele;
+
+Dezavantaje:
+- presupunem de ex. ca in coada de asteptare se afla un proces limitat de
+ calcule cu rafale procesor de 1 sec. si mai multe procese limitate de I/O
+ cu rafale procesor f. scurte, dar care necesita 1000 de citiri de pe disc
+ pentru a se termina;
+  la prima ciclare a proceselor din coada, acestea executa o rafala
+ procesor, apoi se blocheaza intr-o citire si sunt trecute la sfarsitul
+ cozii; rafala procesului limitat de calcule dureaza 1 sec, iar rafalele
+ procesor ale celorlalte la un loc au o durata insignifianta - deci ciclul
+ dureaza cca 1 sec; presupunand ca procesele termina citirile pana le vine
+ randul din nou, rezulta ca la fiecare ciclare procesele isi vor executa
+ rafala procesor si se vor bloca in citirea urmatoare, a.i. intre doua
+ citiri fiecare proces va petrece cca 1 sec.; astfel, procesele limitate
+ de I/O vor avea nevoe de cca. 1000 sec. pentru a se termina;
+  cu un algoritm de planificare preemptiv care ar intrerupe procesul limitat
+ de calcule la fiecare 10 milisec., durata unui ciclu ar fi de cca 10
+ milisec., si astfel (presupunand tot asa ca procesele isi termina citirile
+ pana le vine randul) procesele limitate de I/O se vor termina in 10 sec.,
+ fara a se incetini prea mult procesul limitat de calcule (fiecare rafala
+ procesor a sa de 1 sec. va fi intrerupta de 100 ori pentru a se executa
+ cate o rafala procesor a celorlalte procese, avand o durata totala
+ insignifianta).
+  
+Cea mai scurta lucrare la inceput (Shortest Job First):
+-------------------------------------------------------
+
+ Se presupune ca duratele de rulare a sarcinilor sunt cunoscute apriori
+(eventual estimate statistic) - de ex. intr-o companie de asigurari
+se poate aprecia cat va dura procesarea unui lot de 1000 cereri de
+despagubire, deoarece in fiecare zi se fac calcule similare.
+
+Algoritm: cand mai multe sarcini, la fel de importante, asteapta in
+ coada de intrare sa fie pronitre, planificatorul le alege in ordinea
+ crescatoare a duratelor; algoritmul este non-preemptiv.
+
+Exemplu: presupunem ca au venit sarcinile A,B,C,D cu resp. duratele 8,4,4,4:
+
+      8      4    4    4           4    4    4      8
+  -------------------------      -------------------------
+  |   A    | B  | C  | D  |      | B  | C  | D  |   A    |
+  -------------------------      -------------------------
+  executarea a patru sarcini     executarea sarcinilor in
+  in ordinea originala           ordinea "shortest job first"
+
+excutandu-le in ordinea originala, obtinem pentru A,B,C,D resp. timpii de
+ raspuns 8,12,16,20 - media lor este 14;
+executandu-le in ordinea "shortest job first" obtinem pentru B,C,D,A resp.
+ timpii de raspuns 4,8,12,20 - media lor este 11.
+
+Obs:
+- daca toate sarcinile de planificat sunt disponibile simultan, algoritmul
+ "shortest job first" este optim; intr-adevar, daca duratele sarcinilor
+ sunt, in ordinea planificarii, t1, ..., tn, atunci timpul mediu de raspuns
+ este (n*t1 + (n-1)*t2 + ... + tn)/n, si atunci, pentru a minimiza aceasta
+ valoare, t1, care contribuie cel mai mult, trebuie sa fie cel mai mic,
+ urmatorul ca si contributie, t2, trebuie sa fie urmatorul ca marime, etc.;
+- daca sarcinile de planificat nu sunt toate disponibile simultan,
+ algoritmul nu mai e optim; contraexemplu: presupunem ca vin sarcinile
+ A,B,C,D,E avand resp. duratele 2,4,1,1,1 si momentul sosirii resp.
+ 0,0,3,3,3; initial se pot alege doar A,B (celelalte n-au sosit inca);
+ cu algoritmul "shortest job first" sarcinile vor rula in ordinea A,B,C,D,E,
+ cu un timp mediu de raspuns (2+6+4+5+6)/5 = 4.6; daca le-am fi executat
+ in ordinea B,C,D,E,A, am fi obtinut un timp mediu de raspuns (4+2+3+4+9)/5
+ = 4.4.
+
+Urmatorul timp minim ramas (Shortest Remaining Time Next):
+----------------------------------------------------------
+
+ Este o versiune preemptiva a algoritmului anterior; iarasi, se presupune ca
+duratele de rulare a sarcinilor sunt cunoscute apriori.
+
+Algoritm: planificatorul alege de fiecare data procesul al carui timp de
+ executie ramas este cel mai scurt; daca soseste o noua sarcina, durata sa
+ totala este comparata cu timpul ramas pentru procesul curent iar daca este
+ mai mica, procesul curent este intrerupt si se incepe noua sarcina
+ (algoritmul este preemptiv); cu aceasta exceptie, procesul curent nu se
+ intrerupe, deoarece el fusese ales avand timpul ramas minim iar acest timp
+ nu se reduce decat prin executie.
+
+Avantaje:
+- sarcinile noi si scurte sunt deservite rapid;
+- efortul suplimentar de calcul este mic, deoarece deciziile se iau doar
+ cand un proces se termina sau un proces nou este adaugat, iar al doilea caz
+ doar se compara procesul curent cu cel nou, ignorand celelalte procese.
+
+Dezavantaj: daca sosesc in continuu procese scurte, exista risc de
+ infometare (starvation) pentru procesele cu durata lunga.
+
+Planificarea pe trei niveluri (Three-Level Scheduling):
+-------------------------------------------------------
+
+ Dintr-un anumit punct de vedere, sistemele de prelucrare pe loturi permit
+planificarea pe trei niveluri, astfel:
+- pe masura ce sosesc noi sarcini in sistem, ele sunt plasate intr-o coada
+ de intrare situata pe disc;
+- PLANIFICATORUL DE PRIMIRE (admission scheduler) decide ce sarcini va
+ admite in sistem (restul raman in coada de intrare pana sunt selectate);
+ acesta este primul nivel de planificare;
+  un algoritm tipic pentru controlul admiterii poate selecta un amestec de
+ procese limitate de calcule si limitate de I/O; sau, ar putea admite rapid
+ sarcinile scurte; planificatorul de primire este liber sa tina anumite
+ sarcini in coada de intrare si sa admita sarcini care sosesc mai tarziu;
+- odata ce o sarcina a fost admisa in sistem, poate fi creat pentru ea un
+ proces, care va concura la utilizarea procesorului; daca numarul proceselor
+ devine atat de mare a.i. nu mai incap in memorie, unele procese vor fi
+ swap-ate pe disc;
+- PLANIFICATORUL DE MEMORIE (memory scheduler) decide care procese sunt
+ pastrate in memorie si care pe disc; acesta este al doilea nivel de
+ planificare;
+  revizuirea deciziei nu trebuie sa se faca prea des (de ex. cel mult o data
+ pe sec.) deoarece incarcarea proceselor de pe disc este costisitoare si in
+ plus se pierde o latime de banda prea mare in operatiile cu discul,
+ incetindu-se operatiile de I/O cu fisiere;
+  pentru a optimiza performanta sistemului ca intreg, planificatorul de
+ memorie trebuie sa decida cate procese sa tina in memorie, factor numit
+ GRAD DE MULTIPROGRAMARE (DEGREE OF MULTIPROGRAMMING); daca planificatorul
+ are informatii care procese sunt limitate de calcule si care de I/O, poate
+ incerca sa mentina un amestec de asemenea procese in memorie; de ex. daca
+ o clasa de procese efectueaza calcule cca 20 % din timp, trebuie mentinute
+ in memorie aprox. 5 dintre ele pentru a tine procesorul ocupat;
+  planificatroul de memorie reanalizeaza periodic fiecare proces de pe disc,
+ pentru a decide daca sa il aduca in memorie, in functie de crtierii ca;
+  * cat timp a trecut de cand procesul a fost mutat de pe / pe disc;
+  * cat timp procesor a detinut procesul recent;
+  * cat de mare este procesul (cele mici nu incurca);
+  * cat de important este procesul;
+- PLANIFICATORUL UCP (CPU scheduler) decide ce proces ready din memorie se
+ va rula in continuare; el este componenta la care ne referim de obicei prin
+ PLANIFICATOR; acesta este al treilea nivel de planificare; se poate folosi
+ un algoritm preemptiv sau non-preemptiv, dintre cei descrisi aici sau nu.
+
+I.3. Planificarea in sistemele interactive:
+-------------------------------------------
+
+ Algoritmii descrisi mai jos se pot folosi si in sistemele de prelucrare pe
+loturi. Nu este posibila planificarea pe 3 niveluri, dar este posibila una
+pe 2 niveluri: planificator de memorie si planificator UCP. Ne vom ocupa de
+planificatorul UCP.
+
+Planificarea Round-Robin (Round-Robin scheduling):
+--------------------------------------------------
+
+Este unul dintre cei mai vechi, simpli, si des folositi algoritmi; nu exista
+ risc de infometare.
+
+Algoritm: procesele sunt puse intr-o coada (sau o lista parcursa circular);
+ primului proces i se aloca o CUANTA de timp in care i se permite sa ruleze;
+ daca procesul este inca in executie la sfarsitul cuantei, sau daca se
+ blocheaza din diferite motive, planificatorul il trece la sfarsitul cozii
+ si comuta la procesul urmator; procesele sunt manevrate fara prioritati.
+
+Parametrul prin care pot fi ajustate performantele planificarii este
+ lungimea cuantei:
+- o cuanta prea mica poate cauza prea multe comutari de proces, micsorand
+ eficienta procesorului; de ex. daca comutarea de proces dureaza 1 msec iar
+ lungimea cuantei este 4 msec, 20 % din timpul UCP este consumat pe sarcini
+ administrative, ceea ce e prea mult;
+- o cuanta prea mare poate cauza timpi de raspuns prea mari pentru cereri
+ interactive scurte; de ex. daca intr-un sistem cu divizarea timpului cuanta
+ este de 100 msec si 10 utilizatori tasteaza Enter aprox. in acelasi timp
+ lansand cate o comanda, in lista vor fi adaugate 10 procese, care vor fi
+ pornite la interval de 100 msec (presupunand ca fiecare isi foloseste in
+ intregime cuanta); atunci ultimul utilizator ar putea astepta 1 sec pana sa
+ inceapa sa i se execute comanda, percepand un asemenea timp de raspuns
+ pentru o comanda scurta drept incetineala;
+- daca cuanta este mai mare decat rafala medie de utilizare a procesorului,
+ comutarea fortata a proceselor se va intampla rar, obtinandu-se astfel o
+ imbunatatire a performantei, deoarece comutarile vor avea loc doar atunci
+ cand sunt logic necesare (cand un proces se blocheaza si nu mai poate
+ continua).
+
+Planificarea bazata pe prioritati (Priority Scheduling):
+--------------------------------------------------------
+
+Algoritm: fiecare proces primeste o prioritate, iar cel cu prioritatea
+ cea mai mare va fi rulat primul; pentru a evita situatia cand procesele
+ cu prioritate mare ruleaza prea mult nepermitand accesul la procesor al
+ altor procese, planificatorul poate scadea continuu (la fiecare intrerupere
+ de ceas) prioritatea procesului curent, iar cand aceasta scade sub cea a
+ urmatorului in ierarhie, se va comuta pe noul proces.
+
+Prioritatile se pot atribui proceselor:
+- static (la crearea lor), de ex. in functie de categoria din care face
+ parte utilizatorul care le-a lansat (la o universitate: decan, profesor,
+ student), in functie de pretul platit de beneficiar (la un centru de
+ calcul: prioritate mare = 100 $ ora, medie = 75 $ ora, mica = 50 $ ora);
+  in UNIX/Linux exista comanda "nice" cu care un utilizator poate sa-si
+ lanseze comanda cu o prioritate micsorata; mai exact, prioritatea este
+ data de un numar 0-39, care cu cat este mai mic prioritatea este mai mare;
+ prioritatea implicita este 20; prin comanda "nice -nr comanda" se va lansa
+ comanda "comanda" cu prioritatea 20+nr (doar utilizatorul "root" poate
+ folosi un nr<0);
+- dinamic, de catre sistem, pentru a indeplini anumite scopuri; de ex. cand
+ un proces limitat de I/O doreste procesorul, ar trebui sa i se aloce
+ imediat, intrucat va trece repede la urmatoarea cerere de I/O, care apoi
+ se poate desfasura in paralel cu alte procese care efectueaza calcule (a
+ face procesul orientat I/O sa astepte mult timp procesorul ar insemna ca
+ el sa ocupe memorie inutil pe o perioada lunga de timp); un algoritm simplu
+ pentru a deservi eficient procesele orientate I/O consta in a folosi o
+ prioritate 1/f, unde f este fractiunea din cuanta de timp pe care procesul
+ a folosit-o ultima data - de ex. daca cuanta a fost de 50 msec si a folosit
+ 1 msec, va primi prioritate 50, daca a folosit 25 msec va primi prioritate
+ 2, iar daca a folosit toata cuanta va primi prioritate 1.
+
+Cozi mutiple (Mutiple Queues):
+------------------------------
+
+Algoritm:
+- se grupeaza procesele in clase de prioritate si se foloseste planificarea
+ bazata pe prioritati intre clase si algoritmul round-robin in cadrul
+ fiecarei clase;
+- de fiecare data se ruleaza in maniera round-robin doar procesele din
+ clasa de prioritate maxima (ignorandu-se restul claselor); cand aceasta nu
+ mai contine procese, se procedeaza la fel cu clasa urmatoare, s.a.m.d;
+- prioritatile proceselor trebuie ajustate din cand in cand (si mutate
+ astfel dintr-o clasa in alta), altfel exista risc de infometare pentru
+ procesele din clasele inferioare.
+
+Exemple:
+
+1. Sistemul CTSS efectua lent comutarea intre procese, deoarece nu putea
+tine in memorie decat un proces; proiectantii au constatat ca era mai
+eficient sa se dea proceselor limitate de calcule o cuanta mare de timp din
+cand in cand decat o cuanta mica frecvent, deoarece se reduce swapping-ul;
+nu se puteau da insa cuante mari tuturor proceselor, deoarece se marea prea
+mult timpul de raspuns pentru cererile scurte (am vazut).
+
+ Solutia:
+- s-au creat de clase de prioritate; procesele din clasa maxima erau rulate
+pentru 1 cuanta, cele din clasa urmatoare pentru 2 cuante, cele din clasa
+urmatoare pentru 4 cuante, etc; cand un proces isi folosea in intregime
+cuanta, era mutat o clasa mai jos;
+- cand era apasat Enter de la un terminal, procesul care tinea de terminalul
+respectiv era mutat in prima clasa.
+
+ De ex. un proces care ar necesita 100 cuante pentru calcule ar primi prima
+data 1 cuanta, dupa care ar fi mutat pe disc, apoi 2 cuante, dupa care ar fi
+mutat pe disc, s.a.m.d. 4, 8, 16, 32 si in final 64 (din care ar mai folosi
+doar 37) cuante, fiind swapat in total de 7 ori in loc de 100 in cazul
+folosirii unui algoritm round-robin pur; totodata, pe masura ce cobora in
+clasele de prioritati, ar fi executat din ce in ce mai rar, pastrand
+procesorul pentru procese interactive scurte. A doua regula preintampina
+situatia cand un proces era pedepsit constant daca la inceput avea nevoie sa
+execute mai mult timp calcule, chiar daca ulterior devenea interactiv
+(apasarea lui Enter inplica presupunerea ca procesul e pe cale sa devina
+interactiv). La un moment dat insa un utilizator cu un proces puternic
+orientat pe calcule a observat ca apasand Enter la intamplare la interval de
+cateva secunde isi scurteaza considerabil timpul de raspuns.
+
+2. Sistemul XDS 940 (construit la Berkley) folosea 4 clase de prioritati,
+numite (in ordinea descrescatoare a prioritatilor): terminale, I/O, cuante
+scurte, cuante lungi.
+ Cand un proces care astepta date de la terminal era activat, era trecut
+in clasa 1; cand un proces blocat in asteptarea discului devenea ready, era
+trecut in clasa 2; cand un proces era in executie cand i-a expirat cuanta
+era trecut in clasa 3; cand un proces isi folosea cuanta integral de mai
+multe ori la rand fara sa se blocheze (in asteptarea terminalului sau a
+altor operatii de I/O), era trecut in clasa 4.
+ Astfel erau favorizate procesele interactive in pofida celor de fundal.
+
+Cel mai scurt proces in continuare (Shortest Process Next):
+-----------------------------------------------------------
+
+ Este o adaptare a algoritmului "shortest job first" (de la sistemele de
+prelucrare pe loturi) la sistemele interactive.
+ Procesele interactive urmeaza de regula modelul in care se asteapta o
+comanda, se executa comanda, se asteapta o comanda, se executa comanda, etc;
+daca privim executia fiecarei comenzi ca o sarcina separata, putem reduce
+timpul mediu de raspuns executand in continuare cea mai scurta sarcina.
+ Singura problema este a determina care este procesul cel mai scurt; o
+metoda este sa facem estimari pe baza comportamentului anterior si sa rulam
+procesul cu cel mai scurt timp estimat; de ex. daca timpul estimat pentru o
+comanda este T0 si la urmatoarea executie este masurat ca fiind T1, putem
+reface estimarea considerand o suma ponderata a celor doua: a*T0+(1-a)*T1;
+in functie de valoarea lui a estimarile uita mai repede sau mai incet de
+executiile vechi; de ex. pentru a=1/2 obtinem estimarile succesive:
+T0,  T0/2+T1/2,  T0/4+T1/4+T2/2,  T0/8+T1/8+T2/4+T3/2  (deci dupa 3 estimari
+ponderea lui T0 scade la 1/8).
+ Tehnica prin care se estimeaza urmatoarea valoare dintr-o serie considerand
+suma poderata a valorii curent masurate si a valorii estimate anterior s.n.
+IMBATRANIRE (AGING); ea este usor de implementat pentru a=1/2 (se face o
+suma si o shiftare la dreapta cu 1 bit).
+
+Planificarea garantata (Guaranteed Scheduling):
+----------------------------------------------
+
+ Utilizatorilor li fac (si se respecta)promisiuni reale privind performanta;
+de ex. daca sunt n utilizatori conectati la sistem, fiecare va primi aprox.
+1/n din puterea de calcul; sau, intr-un sistem cu un sigur utilizator daca
+ruleaza n procese, fiecare proces va beneficia de aprox. 1/n din ciclurile
+procesorului.
+
+ Pentru a respecta aceste promisiuni, sistemul tine evidenta capacitatii
+procesor consumate de fiecare proces de la crearea sa si calculeaza 
+capacitatea procesor la care are dreptul procesul impartind timpul de la
+crearea sa la n; apoi ii calculeaza raportul dintre capacitatea consumata si
+capacitatea la care are dreptul; de ex. un raport de 0.5 inseamna ca un
+proces a consumat doar jumatate din capacitatea la care are dreptul, iar un
+raport de 2 inseamna ca a consumat de doua ori mai mlta capacitate decat are
+dreptul.
+ Algoritmul decide sa ruleze procesul cu raportul cel mai mic, pana cand
+raportul lui devine mai mare decat cel al procesului imediat urmator.
+
+ Metoda este dificil de implementat.
+
+Planificarea in sistem de loterie (Lottery Scheduling):
+-------------------------------------------------------
+
+ Este o metoda mai simplu de implementat decat cea anterioara si care ofera
+rezultate predictibile similare.
+
+Algoritm: proceselor li se atribuie bilete de loterie pentru diverse resurse
+ (de ex. pentru timpul alocat pe procesor); atunci cand trebuie luata o
+ decizie de planificare se alege un bilet la intamplare iar procesul care
+ detine biletul primeste resursa (de ex. in planificarea proceselor la
+ procesor, sistemul poate desfasura o loterie de 50 ori pe secunda iar
+ fiecare castigator sa primeasca 20 msec timp alocat pe procesor).
+
+ Procesele importante pot primi mai multe bilete; numarul de bilete primite
+de un proces la creare influienteaza timpul sau de raspuns; de ex. daca
+exista 100 bilete pentru procesor si un proces detine 20 bilete, va avea
+20 % sansa de a castiga la fiecare loterie, deci pe termen lung va obtine
+cca 20 % din timpul procesorului.
+ Procesele cooperante pot schimba bilete intre ele; de ex. cand un proces
+client trimite un mesaj unui proces server si apoi se blocheaza, poate
+trimite toate biletele sale serverului pentru a mari sansele acestuia de a
+se executa in continuare; in absenta clientilor serverele nu au nevoie de
+bilete.
+
+Planificarea cu parti egale (Fair-Share Scheduling):
+----------------------------------------------------
+
+ Pana acum am presupus ca procesele sunt planificate individual, indiferent
+de proprietarul lor; atunci, daca utilizatorul 1 lanseaza 9 procese iar
+utilizatroul 2 lanseaza 1 proces, in cazul planificarii round-robin sau
+daca prioritatile sunt egale, utilizatorul 1 obtine 90 % din capacitatea
+procesorului iar utilizatorul 2 doar 10 %.
+
+ Pentru a preveni o asemenea situatie, unele sisteme iau in considerare si
+proprietarul procesului; concret, fiecare utilizator are alocata o anumita
+proportie a capacitatii procesorului iar planificatorul alege procesele a.i.
+sa se respecte aceasta regula; astfel, daca doi utilizatori au primit
+promisiunea ca li se va aloca aprox. 50 % din capacitatea procesorului,
+fiecare va primi atat, indiferent cate procese are fiecare.
+
+ De ex. daca doi utilizatori au primit promisiunea a 50 % din capacitatea
+procesorului, primul are procesele A,B,C,D iar al doilea doar procesul E,
+o planificare round-robin ce satisface toate constrangerile ar fi:
+
+A E B E C E D E A E B E C E D E
+
+iar daca primul utilizator ar fi avut dreptul la de doua ori mai multa
+capacitate procesor decat celalalt, am putea obtine:
+
+A B E C D E A B E C D E
+
+I.4. Planificarea in sistemele de timp real:
+--------------------------------------------
+
+ Sistemele in timp real sunt sisteme in care timpul joata un rol esential.
+De obicei niste dispozitive fizice externe atasate calculatorului genereaza
+stimuli, iar calculatorul trebuie sa reactioneze corespunzator lor intr-un
+interval de timp dat. In general, in aceste cazuri obtinerea unui raspuns
+corect prea tarziu este la fel de rea ca lipsa raspunsului.
+ Exemple: sistemele care monitorizeaza pacientiiin sectiile de terapie
+intensiva, autopilotul unui avion, mecanismul de control al robotilor intr-o
+fabrica automatizata.
+
+ Sistemele de timp real se impart in urmatoarele categorii:
+- SISTEME "STRICT" DE TIMP REAL (HARD REAL TIME) - unde exista termene
+ absolute ce trebuie respectate;
+- SISTEME "LEJERE" DE TIMP REAL (SOFT REAL TIME) - unde desi nerespectarea
+ termenelor nu este de dorit, este ocazional tolerabila.
+In ambele cazuri, comportamentul de timp real este atins prin divizarea
+programului intr-un numar de procese, fiecare avand un comportament
+predictibil si cunoscut apriori. Aceste procese au in general o durata
+scurta (sub 1 sec). Atunci cand se detecteaza un eveniment extern, este
+datoria planificatorului sa planifice procesele a.i. sa se respecte toate
+termenele.
+
+ Evenimentele la care trebuie sa raspunda un sistem de timp real pot fi:
+- PERIODICE - care apar la intervale regulate;
+- APERIODICE - apar intr-o maniera imprevizibila.
+ Ar putea fi necesar ca sistemul sa raspunda la mai multe fluxuri de
+evenimente periodice; daca exista m evenimente periodice iar evenimentul i
+apare cu perioada Pi si necesita Ci secunde procesor pentru fiecare aparitie
+atunci prelucrarea poate fi facuta doar daca:
+
+                  m   
+                 suma (Ci/Pi) <= 1
+                 i=1
+
+(altfel anumite evenimente pot sa nu fie procesate). Am presupus ca
+supraincarcarea cauzata de comutarea intre procese este neglijabila.
+Un sistem care indeplineste criteriul de mai sus s.n. PLANIFICABIL
+(SCHEDULABLE).
+
+ Algoritmii de planificare pentru sistemele de timp real pot fi:
+- STATICI - iau deciziile de planificare inainte de inceperea rularii
+ sistemului;
+- DINAMICI - iau deciziile in timpul rularii.
+ Planificarea statica este aplicabila doar daca sunt disponibile apriori
+informatii exacte asupra operatiilor ce trebuie efectuate si termenelor ce
+trebuie respectate. Algoritmii de planificare dinamica nu au aceste
+restrictii.
+
+
+TODO: planificarea in sistemele de timp real (cazul sistemelor multimedia).
+
+TODO: planificarea in sistemele multiprocesor.
+
+TODO: planificarea in sistemele multicalculator.
+
+
+1.* Politici versus mecanisme:
+------------------------------
+
+ Cand un proces genereaza procese copil, el poate cunoaste importanta
+fiecaruia (sau a carui executie este necesara mai rapid); in general insa
+planificatorii nu accepta input de la procesele utilizator cu privire la
+deciziile de planificare si astfel aleg rar cea mai buna varianta.
+
+ Solutia este separarea MECANISMULUI DE PLANIFICARE de POLITICA DE
+PLANIFICARE, adica algoritmul de planificare sa fie parametrizat, iar
+parametrii sa poata fi completati de procesele utilizator - de exemplu
+sistemul sa foloseasca un algoritm de planificare bazat pe prioritati,
+dar sa ofere si un apel sistem prin care un proces sa poata modifica
+prioritatile copiilor sai (atunci parintele poate controla modul in care
+sunt planificati copii lui, chiar daca nu face el insusi planificarea);
+in acest caz mecansimul se afla in nucleu, dar politica este stabilita de
+procesul utilizator.
+
+1.* Planificarea thread-urilor:
+-------------------------------
+
+ In sistemele in care procesele pot avea mai multe thread-uri, avem doua
+niveluri de planificare: procese si thread-uri, iar planificarea se face
+diferit, in functie de cum sunt implementate thread-urile: in spatiul
+utilizator, in nucleu, hibrid - pentru detalii a se vedea cursul 5.
+
+ In cazul implementarii thread-urilor in spatiul utilizator, daca un thread
+nu cedeaza procesorul, vor fi afectate doar thread-urile aceluiasi proces,
+nu si alte procese; practic thread-ul va consuma cuanta de timp a procesului
+sau, dupa care planificatorul va comuta la alt proces (cand se va reveni
+insa la procesul respectiv thread-ul va rula din nou).
+ Totodata, la nivelul sistemului thread-urile nu se pot amesteca mai mult
+decat se amesteca procesele; astfel, chiar daca thread-urile au rafale
+procesor scurte fata de cuantele proceselor (dupa care sunt comutate), cat
+timp se executa procesul A se vor amesteca doar thread-uri ale lui A, apoi
+cat timp se executa procesul B se vor amesteca doar thread-uri ale lui B,
+etc.
+ Algoritmul de planificare folosit de executivul unui proces poate fi
+oricare din cei de mai sus; de regula se foloseste round-robin si
+planificarea bazata pe prioritati. De asemenea, intrucat procesele stiu tot
+ce fac thread-urile lor, pot folosi un algoritm de planificare propriu,
+specific aplicatiei, in care sa tina seama de importanta si relatiile logice
+dintre thread-uri; de ex. in cazul serverului web prezentat ca exemplu in
+cursul 5, daca un thread lucrator se blocheaza, iar thread-ul dispecer si
+alte doua thread-uri lucrator sunt disponibile, executivul poate alege
+dispecerul, pentru ca acesta sa poata porni alt lucrator.
+
+ In cazul implementarii thread-urilor in nucleu, planificatorul poate
+amesteca thread-uri din procese diferite. Thread-urile primesc si ele cuante
+si sunt intrerupte daca le depasesc. Cand alege thread-urile pentru rulare
+planificatorul poate sa tina sau nu cont de procesul caruia ii apartine - de
+exemplu intrucat comutarea intre thread-uri ale unor procese diferite este
+mai costisitoare decat comutarea intre thread-uri ale unui acelasi proces
+(deoarece trebuie efectuata comutarea de context a proceselor), daca
+thread-ul curent tocmai s-a blocat iar planificatorul are de ales intre alte
+doua thread-uri de importanta egala, unul apartinand aceluiasi proces ca
+thread-ul blocat, celalalt apartinand altui proces, l-ar putea prefera pe
+primul.
+ Nucleul nu stie insa ce fac thread-urile proceselor, si de aceea
+planificatoarele de thread-uri specifice aplicatiilor (a se vedea exemplul
+cu serverul web) pot ajusta performantele acestora mai bine decat o poate
+face nucleul.
+
+
+2. Interblocare
+---------------
+
+ Sistemele de calcul au multe resurse, hardware sau software, ce pot fi
+folosite doar de un singur proces la un moment dat: imprimanta, unitati de
+banda magnetica (tape dirives), intrari in tabelele interne ale sistemului,
+inregistrari intr-o baza de date, etc. - de ex. daca doua procese ar scrie
+simultan la imprimanta, rezultatul ar fi fara sens.
+ De aceea, SO includ posibilitatea de a permite (temporar) unui proces
+accesul exclusiv la anumite resurse.
+ De multe ori insa, procesele au nevoie de mai multe resurse simultan, pe
+care incearca sa le ocupe pe rand; daca insa nu exista o coordonare a
+acestor actiuni, se poate ajunge la diverse forme de esec; exemple:
+
+presupunem ca procesul P1 cauta sa ocupe resursele R1, R2 (in ordinea asta)
+ iar procesul P2 cauta sa ocupe resursele R2, R1 (in ordinea asta);
+rulate concurent, planicatorul poate determina urmatoarea secventa de
+ executie:
+ P1 incearca sa obtina R1 si reuseste (acum el detine R1);
+ P2 incearca sa obtina R2 si reuseste (acum el detine R2);
+ P1 incearca sa obtina R2 si se blocheaza in asteptare (R2 e ocupata de P2);
+ P2 incearca sa obtina R1 si se blocheaza in asteptare (R1 e ocupata de P1);
+astfel se ajunge la o interblocare - fiecare proces va astepta la nesfarsit
+ resursa detinuta de celalalt;
+
+asemanator, daca un proces executa apelul prin care incearca sa obtina o
+ resursa pe care a ocupat-o tot el mai inainte dar nu a executat apelul
+ prin care o elibereaza, se blocheaza pe termen nelimitat in asteptare
+ (autoblocare).
+
+Interblocaje pot aparea si intre mai multe masini conencate in retea, mai
+ ales daca se afla in locatii diferite iar operatorii umani nu pot comunica
+ usor pentru a-si corela actiunile.
+
+Terminologie (cf. Wikipedia):
+
+ DEADLOCK (INTERBLOCARE) = situatie in care o multime de procese asteapta
+  fiecare o resursa ce poate fi furnizata numai de catre un altul din
+  aceeasi multime, iar nici un proces nu-si schimba starea;
+
+ ex: doi oameni incearca sa intre simultan pe o aceeasi usa, venind din
+   sensuri opuse, si ajunsi fata in fata fiecare asteapta sa se dea la
+   o parte celalalt;
+
+ LIVELOCK = similar cu deadlock, doar ca procesele isi schimba in permanenta
+   starea unul fata de altul, fara a progresa;
+
+ ex: doi oameni se intalnesc fata in fata pe un trotuar venind din sensuri
+   opuse si fiecare, politicos, incearca sa se dea la o parte pentru a-l
+   lasa pe celalalt sa treaca, dar ambii fac in mod repetat pasul lateral
+   in acelasi timp in aceeasi parte;
+
+ STARVATION (INFOMETARE) = situatie in care unui proces i se refuza
+   perpetuu resursele necesare, a.i. el nu poate progresa;
+
+ Conform acestor definitii, deadlock si livelock sunt cazuri particulare
+  de starvation; in practica insa, toate situatiile in care proceselor li
+  se refuza perpetuu resursele si nu sunt de interblocare s.n. starvation.
+
+2.1 Resurse:
+------------
+
+ Interblocarile pot aparea atunci cand proceselor li s-a acordat acces
+exclusiv la diverse resurse.
+
+ In cele ce urmeaza, vom numi RESURSA (RESOURCE) orice obiect hardware sau
+software asupra caruia se cere permisiune de acces si nu poate fi folosit
+decat de un singur proces la un moment dat.
+
+ O resursa poate fi:
+- PREEMPTIBILA (PREEMPTABLE RESOURCE): poate fi luata (preemptata) de la
+ procesul care o detine fara efecte nedorite; ex: memoria;
+  intr-adevar, consideram un sistem cu 32MB memorie utilizator, o imprimanta
+ si doua procese A si B de cate 32MB, fiecare dorind sa printeze; A cere si
+ primeste acces la imprimanta, apoi incepe sa prelucreze valorile pentru
+ printare; inainte de a termina prelucrarea, i se termina cuanta de timp si
+ este mutat din memorie pe disc (swapped out); in continuare se comuta pe B,
+ iar acesta incearca fara succes sa acceseze imprimanta; este o interblocare
+ potentiala, deoarece A detine imprimanta iar B memoria si nici unul nu
+ poate continua fara resursa detinuta de celalalt; totusi memoria se poate
+ preempta de la B prin mutarea acestuia pe disc si reincarcarea lui A
+ (swapped in) - atunci A poate rula, printa si apoi elibera imprimanta;
+- NON-PREEMPTIBILA (NONPREEMPTABLE RESOURCE): nu poate fi luata de la
+ procesul care o detine fara ca acesta sa esueze; ex: CD-writer
+ (daca un proces a inceput sa inscriptioneze un CD-ROM iar accesul la
+ CD-writer i se ia si se da altui proces, va rezulta un CD cu informatie
+ amestecata, fara sens).
+
+ In general interblocarile implica resurse non-preemptibile; interblocarile
+potentiale care implica resurse preemptibile pot fi rezolvate de obicei prin
+realocarea resurselor de la un proces la altul.
+ De aceea, in cele ce urmeaza, vom considera resurse non-preemptibile.
+
+ Secventa de actiuni pentru folosirea unei resurse este:
+ 1. cerere resursa (daca nu e disponibila, procesul este fortat sa astepte);
+ 2. folosire resursa;
+ 3. eliberare resursa.
+ Modul de cerere al unei resurse este dependent de sistem, de exemplu se
+foloseste un apel sistem; daca resursa nu este disponibila, sistemul poate
+bloca automat solicitantul (apelul de cerere blocheaza procesul apelant)
+pana cand devine disponibila si atunci il deblocheaza, sau cererea (apelul)
+doar returneaza un cod de eroare si este sarcina procesului solicitant
+sa astepte putin si sa incerce din nou (intr-o bucla de cerere).
+ In cele ce urmeaza vom presupune ca un proces caruia i se refuza cererea
+de acces la o resursa este blocat.
+
+ Pentru unele resurse, ca de ex. inregistrarile dintr-o baza de date,
+administrarea folosirii resurselor cade in sarcina proceselor utilizator;
+de ex. fiecarei resurse i se poate asocia un semafor initializat cu 1 sau
+un mutex; pasii 1 si 3 de mai sus vor fi implementati ca un "down", resp.
+"up" pe semaforul respectiv; daca un proces are nevoie de mai multe resurse,
+va incerca sa le obtina pe rand:
+
+/* date partajate */
+typedef int semaphore;
+semaphore resource1;
+semaphore resource2;
+
+/* procedura executata intr-unul dintre procese */
+void process(void){
+  down(&resource1);
+  down(&resource2);
+  use_both_resources();
+  up(&resource2);
+  up(&resource1);
+}
+
+ Totusi, daca mai multe procese vor sa obtina mai multe resurse, ordinea in
+care incearca sa le obtina poate conduce la interblocaje;
+ exemplu de cod fara interblocare:
+
+/* date partajate */
+
+typedef int semaphore;
+semaphore resource1;
+semaphore resource2;
+
+/* proceduri executate in procese diferite */
+
+void process_A(void){          void process_B(void){
+  down(&resource1);              down(&resource1);
+  down(&resource2);              down(&resource2);
+  use_both_resources();          use_both_resources();
+  up(&resource2);                up(&resource2);
+  up(&resource1);                up(&resource1);
+}                              }
+
+primul proces care va obtine resursa 1 va obtine si resursa 2; daca intre
+timp celalalt proces incearca sa obtina resursa 1 este blocat pana cand
+celalalt o elibereaza, dar acela va fi eliberat atunci deja si resursa 2;
+ exemplu de cod cu interblocare potentiala:
+
+/* date partajate */
+
+typedef int semaphore;
+semaphore resource1;
+semaphore resource2;
+
+/* proceduri executate in procese diferite */
+
+void process_A(void){          void process_B(void){
+  down(&resource1);              down(&resource2);
+  down(&resource2);              down(&resource1);
+  use_both_resources();          use_both_resources();
+  up(&resource2);                up(&resource1);
+  up(&resource1);                up(&resource2);
+}                              }
+
+se poate intampla ca un proces sa obtina ambele resurse inainte ca celalalt
+sa ceara vreuna si atunci totul e OK (daca celalalt face prima cerere in
+timp ce detinatorul resurselor este in "use_both_resources()", va fi blocat,
+dar se va debloca si va trece de cele doua "down" pe masura ce detinatorul
+executa cele doua "up"); se poate intampla insa ca un proces sa execute
+primul "down" (ocupand o resursa) si inainte ca el sa ajunga la al doilea
+"down" planificatorul sa comute la celalalt proces care sa execute si el
+primul "down" (ocupand o resursa) - in continuare ambele procese se vor
+bloca in al doilea "down" pe termen nelimitat, asteptand eliberarea resursei
+detinute de celalalt (interblocare).
+
+2.2 Introducere in interblocari:
+--------------------------------
+
+ Vom studia situatiile in care o multime de procese asteapta fiecare un
+eveniment (de ex. eliberarea unei resurse) ce poate fi furnizata numai de
+catre un alt proces din aceeasi multime, iar nici un proces nu-si schimba
+starea (interblocare).
+
+ In cele ce urmeaza vom presupune ca procesele au un singur fir de executie
+si nu sunt posibile intreruperi care sa trezeasca un proces blocat intr-o
+cerere a unei resurse (de ex. in UNIX/Linux un proces poate arma ceasul
+cu "alarm()" pentru a primi semnalul SIGALRM dupa un interval de timp, apoi
+intra intr-un apel de cerere a unei resurse care il blocheaza, iar daca
+resursa nu devine disponibila dupa scurgerea intervalului de timp, la
+primirea semnalului SIGALRM, apelul se va intrerupe iar handler-ul asociat
+semnalului va putea furniza evenimente care sa trezeasca un alt proces cu
+care procesul curent este interblocat).
+
+Pentru a fi posibila interblocarea, trebuie indeplinite 4 conditii simultan
+(conditiile lui E. G. Coffman, 1971):
+
+1. CONDITIA DE EXCLUDERE MUTUALA (MUTUAL EXCLUSION CONDITION):
+ fiecare resursa este fie disponibila, fie alocata unui singur proces;
+2. CONDITIA DE DETINERE SI ASTEPTARE (HOLD AND WAIT CONDITION):
+ procesele care detin resurse obtinute mai devreme pot cere noi resurse;
+3. CONDITIA DE LIPSA A PREEMPTIEI (NO PREEMPTION CONDITION):
+ resursele obtinute anterior de procese nu pot fi luate fortat de la ele
+ (procesele detinatoare trebuie sa le elibereze explicit);
+4. CONDITIA DE ASTEPTARE CIRCULARA (CIRCULAR WAIT CONDITION):
+ trebuie sa existe un lant circular de doua sau mai multe procese, fiecare
+ asteptand accesul la o resursa detinuta de urmatorul membru al lantului.
+
+ Conditiile de mai sus pot fi modelate cu ajutorul grafurilor orientate
+(Holt, 1972); grafurile au doua tipuri de noduri: procesele, reprezentate
+prin cercuri (), si resursele, reprezentate prin patrate []; un arc
+[resursa] --> (proces) arata ca resursa a fost ceruta, acordata si in
+prezent detinuta de procesul respectiv; un arc (proces) --> [resursa] arata
+ca procesul este blocat in prezent in asteptarea eliberarii resursei
+respective.
+ Un ciclu in graf arata existenta unei interblocari ce implica procesele si
+resursele din ciclu (presupunand ca exista cate o singura instanta din
+fiecare tip de resursa - de exemplu sistemul are o o singura imprimanta, nu
+mai multe).
+
+Exemplu de interblocare (ciclul C-T-D-U-C):
+
+                          .--------> (D) --------.
+                          |                      |
+                          |                      V
+                         [T]                    [U]
+                          ^                      |
+                          |                      |
+                          '--------- (C) <-------'
+
+ Grafurile de folosire a resurselor pot fi generalizate si la cazul cand
+avem mai multe instante din acelasi tip de resursa.
+
+ Rularea secventiala a proceselor nu duce la nici o interblocare (deoarece
+nu exista competitie pentru resurse), dar nu are paralelism si in plus, daca
+un proces asteapta intr-o operatie de I/O, nu este posibil ca altul sa
+foloseasca intre timp procesorul.
+ Daca nici unul dintre procese nu realizeaza operatii de I/O, algoritmul
+(de planificare secventiala) "shortest job first" este mai bun decat
+round-robin.
+ Daca procesele efectueaza atat operatii de I/O cat si prelucrari,
+round-robin este convenabil.
+
+ Se pot elabora algoritmi de luare a deciziilor de alocare care sa nu duca
+la interblocari, iar grafurile de resurse sunt o unealta cu care putem vedea
+daca o secventa de cerere/eliberare duce la interblocare - practic efectuam
+pas cu pas cererile si eliberarile de resurse si dupa fiecare pas verificam
+daca graful are cicluri; daca sistemul constata (de ex. studiind graful) ca
+satisfacerea unei cereri ar putea duce la interblocare, ar putea suspenda
+(i.e. omite de la planificare) procesul solicitant fara sa-i satisfaca
+cererea, pana cand totul este sigur.
+
+ Exemplu: avem procesele A, B, C si resursele R, S, T; operatiile de cerere
+si eliberare de resurse efectuate de procese sunt:
+
+    A                   B                   C
+cerere R            cerere S            cerere T
+cerere S            cerere T            cerere R
+eliberare R         eliberare S         eliberare T
+eliberare S         eliberare T         eliberare R
+
+procesele sunt planificate preemptiv (de ex. round-robin);
+daca planificatorul determina secventa urmatoare de executie, se ajunge la
+ interblocaj:
+
+1. A cere R
+2. B cere S
+3. C cere T
+4. A cere S
+5. B cere T
+6. C cere R (cu interblocare)
+
+
+(A) (B) (C)        (A) (B) (C)        (A) (B) (C)
+ ^                  ^   ^              ^   ^   ^
+ |                  |   |              |   |   |
+ |                  |   |              |   |   |
+ |                  |   |              |   |   |
+[R] [S] [T]        [R] [S] [T]        [R] [S] [T]
+
+     1                  2                  3
+
+
+(A) (B) (C)        (A) (B) (C)        (A) (B) (C)
+ ^|  ^   ^          ^|  ^|  ^          ^|  ^|  ^|
+ |'-.|   |          |'-.|'-.|          |'-.|'-.|'-.
+ |  ||   |          |  ||  ||          |  ||  ||  |
+ |  V|   |          |  V|  V|          |  V|  V|  |
+[R] [S] [T]        [R] [S] [T]        [R] [S] [T] |
+                                       ^          |
+     4                  5              '----------'
+                                             6
+
+daca sistemul ar fi stiut de interblocajul iminent, ar fi putut suspenda
+(omite de la planificare) pe B in loc sa-i acorde S; ruland o vreme doar A
+si C, ar fi avut loc cereri si eliberari de resurse dupa care s-ar fi putut
+rula B primind S, fara interblocaj:
+
+1. A cere R
+2. C cere T
+3. A cere S
+4. C cere R
+5. A elibereaza R
+6. A elibereaza S
+
+
+(A) (B) (C)        (A) (B) (C)        (A) (B) (C)
+ ^                  ^       ^          ^^      ^
+ |                  |       |          ||      |
+ |                  |       |          |'--.   |
+ |                  |       |          |   |   |
+[R] [S] [T]        [R] [S] [T]        [R] [S] [T]
+
+     1                  2                  3
+
+
+(A) (B) (C)        (A) (B) (C)        (A) (B) (C)
+ ^^      ^|          ^      ^^                 ^^
+ ||      |'-.        |      |'-.               |'-.
+ |'--.   |  |        '--.   |  |               |  |
+ |   |   |  |           |   |  |               |  |
+[R] [S] [T] |      [R] [S] [T] |      [R] [S] [T] |
+ ^          |       |          |       |          |
+ '----------'       '----------'       '----------'
+     4                  5                  6
+
+
+acum, dupa pasul 6, poate fi rulat B obtinand S, deoarece A s-a terminat iar
+C are toate resursele necesare; chiar daca B s-ar bloca apoi cerand T, nu ar
+aparea interblocare ci B doar va astepta pana cand C se termina.
+
+ In general, sunt folosite patru strategii pentru a lua masuri impotriva
+interblocarilor:
+
+1. Ignorarea in totalitate a problemei; poate ca daca o ignori, si ea te va
+  ignora.
+2. Detectarea si restaurarea (detection and recovery): interblocarile sunt
+  lasate sa apara, iar cand apar sunt detectate si se iau masuri.
+3. Evitarea dinamica (dynamic avoidance), printr-o alocare cu atentie a
+  resurselor.
+4. Prevenirea (prevention), prin negarea uneia din cele patru conditii
+  necesare pentru aparitia interblocarii.
+
+Vom examina fiecare din aceste strategii in urmatoarele patru sectiuni:
+
+2.3 Algoritmul strutului (The Ostrich Algorithm):
+-------------------------------------------------
+
+Metoda: ingnorare (asemeni strutului care isi baga capul in nisip si
+ pretinde ca nu exista nici o problema).
+
+ Eliminarea interblocarilor se face in general cu costuri mari in ceea ce
+priveste performanta sau restrictii suplimentare asupra proceselor, asa ca
+uneori este de preferat ignorarea problemei decat rezolvarea ei cu un pret
+prea mare - de exemplu daca intr-un sistem interblocarile apar in medie
+odata la 5 ani, dar sistemul cade saptamanal din cauza defectarii hardului,
+erorilor de compilator si erorilor de programare din SO, inginerii nu vor
+fi dispusi sa elimine interblocarile cu pretul unei scaderi mari a
+performantei.
+ Se impune deci un echilibru intre ce e convenabil si ceea ce este corect.
+
+ Majoritatea SO, inclusiv UNIX, Linux, Windows, ignora anumite interblocari
+potentiale care exista in ele si pe care le lasa sa duca la caderea
+sistemului; acestea pot fi legate de anumite tabele ale sistemului folosite
+la gestiunea unor anumite tipuri de entitati si care au un numar fixat de
+intrari, fiind posibil sa rezulte blocaje daca se umplu.
+ Exemplu din UNIX/Linux:
+ tabela de procese are un numar fixat de intrari; daca este plina, apelul
+"fork()" efectuat de un proces pentru a crea un proces copil va esua;
+in cazul unui asemenea esec, o abordare inteleapta ar fi ca procesul sa
+astepte o vreme si apoi sa incerce din nou; daca insa tabela are 100 de
+intrari si 10 procese care ruleaza doresc sa creeza cate 12 copii, dupa
+ce fiecare va efectuat 9 "fork()" tabela de procese este plina si toate
+cele 10 procese initiale vor cicla la infinit tot incercand sa efectueze
+"fork()"; acesta este un caz mai degraba de livelock;
+ probleme similare apar atunci cand se umple tabela de i-noduri a discului
+(cu care se gestioneaza fisierele, fiecare primind cate un i-nod), sau
+spatiul folosit pentru interschimbarea paginilor in memorie (swap space),
+ambele fiind resurse limitate.
+ Aceste probleme au insa probabilitate mica de aparitie, deoarece aceste
+resurse desi sunt limitate sunt mari si este putin probabil ca o colectie
+de n procese sa ceara fiecare cate 1/n din resursa si apoi toate sa incerce
+sa ceara in plus. Asa ca Unix, Linux, Windows ignora aceste probleme, in
+baza presupunerii ca majoritatea utilizatorilor prefera o interblocare
+ocazionala decat restrictii prea mari asupra utilizatorilor si proceselor.
+
+2.4 Detectarea interblocarii si restaurarea:
+--------------------------------------------
+
+Metoda: sistemul nu incearca sa previna aparitia interblocarilor; le lasa
+ sa apara, incearca sa le detecteze cand se intampla si apoi ia masuri
+ pentru recuperare.
+
+Cautarea interblocarilor se poate face de fiecare data cand se face o cerere
+ de resursa - aceasta asigura detectarea lor cat mai devreme posibil, dar
+ consuma destul de mult timp procesor. O alta strategie este verificarea la
+ fiecare k minute sau doar cand utilizarea procesorului a scazut sub o
+ anumita limita (deoarece daca sunt suficient de multe procese in
+ interblocare, putine procese vor fi rulabile si procesorul va fi adesea
+ neutilizat).
+
+Cateva metode de detectare:
+
+Detectarea interblocarii cu o singura resursa din fiecare tip:
+--------------------------------------------------------------
+
+Algoritm: pe masura ce evolueaza sistemul, se (re)construieste graful
+ de resurse ca mai sus si se inspecteaza daca dobandeste un ciclu.
+
+Exemplu de graf:
+
+[R]--->(A)           (B)                  A detine R si cere S
+        |             |                   B nu detine resurse, dar cere T
+        V             V                   C nu detine resurse, dar cere S
+(C)--->[S]<---(D)--->[T]--->(E)           D detine U si cere S si T
+        ^      ^             |            E detine T si cere V
+        |      |             V            F detine W si cere S
+       (F)    [U]           [V]           G detine V si cere U
+        ^      ^             |
+        |      |             |
+       [W]    (G)<-----------'
+
+graful contine un ciclu, din care rezulta ca procesele D, E, G sunt in
+interblocare; procesele A, C, F nu sunt in interblocare, deoarece S poate fi
+alocata oricaruia dintre ele, care apoi termina si o elibereaza, apoi
+celelalte o pot lua pe rand si apoi de asemenea termina si o elibereaza.
+
+Algoritm de detectare a ciclurilor intr-un graf orientat (simplu dar nu si
+ optim) - el inspecteaza graful si se termina cand a gasit un ciclu sau
+ cand a constatat ca nu exista cicluri :
+- se foloseste o lista de noduri L; pe parcursul algoritmului arcele vor fi
+ marcate pentru a indica faptul ca au fost deja parcurse;
+- se efectueaza pasii:
+1. Pentru fiecare nod N din graf, executa urmatorii 5 pasi avandu-l pe N
+  ca nod curent initial.
+2. Initializeaza L cu lista vida si seteaza toate arcele ca fiind nemarcate.
+3. Adauga nodul curent la sfarsitul lui L si verifica daca el mai apare
+  o data in L; daca apare, graful are un ciclu (ce contine nodurile din L
+  cuprinse intre cele doua aparitii) si algoritmul se termina.
+4. Daca mai exista arce nemarcate care pornesc din nodul curent, executa
+  pasul 5, altfel executa pasul 6.
+5. Alege la intamplare un arc nemarcat care pleaca din nodul curent si
+ marcheaza-l; apoi, mergand pe acel arc, ia urmatorul nod ca nod curent si
+ reia de la pasul 3.
+6. Scoate nodul din lista; daca este nodul initial, reia de la pasul 2 cu
+ urmatorul nod N din graf; daca nu este nodul initial, revino la nodul
+ anterior din lista, i.e. cel care a fost curent imediat inaintea acestuia,
+ considera-l ca nod curent si reia de la pasul 4.
+7. Aici se ajunge daca pasul 1 a fost incheiat (deci pasii 2-6 au fost
+ efectuati pentru fiecare nod N din graf) si nu s-a gasit nici un ciclu;
+ atunci graful nu contine cicluri si algoritmul se termina.
+
+Obs: de fapt, algoritmul ia fiecare nod si parcurge in adancime
+ (depth-first) presupusul arbore cu radacina in el, iar daca in felul
+ acesta revine la un nod deja intalnit, graful are ciclu; parcurgerea
+ se face prin backtracking.
+
+Aplicam algoritmul grafului din exemplul de mai sus, alegand sa procesam
+nodurile in ordine de la stanga la dreapta si de sus in jos (ordinea nu
+conteaza), adica: R, A, B, C, S, D, T, E, F, U, V, W, G; vom evidentia
+valoarea lui N, continutul lui L si arcele marcate (pe verticala):
+
+                            |R|A|B|C|D|D|T|E|F|U|V|W|G
+N     L                     |A|S|T|S|S|T|E|V|S|D|G|F|U
+-------------------------------------------------------
+R     []                    | | | | | | | | | | | | |
+      [R]                   | | | | | | | | | | | | |
+      [RA]                  |x| | | | | | | | | | | |
+      [RAS]                 |x|x| | | | | | | | | | |
+      [RA]                  |x|x| | | | | | | | | | |
+      [R]                   |x|x| | | | | | | | | | |
+-------------------------------------------------------
+A     []                    | | | | | | | | | | | | |
+      [A]                   | | | | | | | | | | | | |
+      [AS]                  | |x| | | | | | | | | | |
+      [A]                   | | | | | | | | | | | | |
+-------------------------------------------------------
+B     []                    | | | | | | | | | | | | |
+      [B]                   | | | | | | | | | | | | |
+      [BT]                  | | |x| | | | | | | | | |
+      [BTE]                 | | |x| | | |x| | | | | |
+      [BTEV]                | | |x| | | |x|x| | | | |
+      [BTEVG]               | | |x| | | |x|x| | |x| |
+      [BTEVGU]              | | |x| | | |x|x| | |x| |x
+      [BTEVGUD]             | | |x| | | |x|x| |x|x| |x
+      [BTEVGUDT]            | | |x| | |x|x|x| |x|x| |x
+==> ciclu: TEVGUDT
+
+Detectarea interblocarii cu mai multe resurse din fiecare tip:
+--------------------------------------------------------------
+
+Fie n procese P1, ..., Pn si m clase de resurse.
+
+Fie E1, ..., Em vectorul de resurse existente (existing resource vector);
+ el spune ca pentru fiecare 1<=i<=m exista in sistem Ei resurse de clasa i
+ (altfel formulat: Ei instante ale clasei de resurse i).
+
+Fie A1, ..., Am vectorul de resurse disponibile (available resource vector);
+ el spune ca in prezent pentru fiecare 1<=i<=m sunt disponibile Ai resurse
+ de clasa i.
+
+Fie matricea (Cij)1<=i<=n,1<=j<=m matricea de alocare curenta (current
+ allocation matrix); ea spune ca in prezent pentru fiecare i,j, procesul
+ Pi detine Cij resurse de clasa j.
+
+Fie matricea (Rij)1<=i<=n,1<=j<=m matricea de cereri (request matrix); ea
+ spune ca pentru fiecare i,j, procesul Pi cere Cij resurse de clasa j
+ (in plus fata de cele pe care deja le detine).
+
+Exista un invariant important al acestor patru structuri de date - anume
+ fiecare resursa este fie alocata fie disponibila; cu alte cuvinte, in
+ orice moment avem:
+                          n
+ pentru orice 1<=j<=m,  (suma Cij) + Aj = Ej.
+                         i=1
+
+Definim comparatia a doi vectori cu m elemente pointwise, adica X <= Y d.d.
+ pentru orice 1<=j<=m, Xj<=Yj.
+
+Algoritm de detectare a interblocarii (algoritmul lui E. G. Coffman, 1971):
+- initial fiecare proces este nemarcat; pe masura ce algoritmul progreseaza,
+ procesele vor fi marcate indicand faptul ca isi pot termina treaba si deci
+ nu se afla in interblocare; orice proces nemarcat dupa terminarea
+ algoritmului se afla in interblocare;
+- se efectueaza pasii:
+1. Cauta un proces nemarcat Pi, pentru care randul i din R este mai mic
+  sau egal cu A (ca vector).
+2. Daca este gasit un asemenea proces, aduna randul i din C la A,
+  marcheaza procesul si reia de la pasul 1.
+3. Daca nu exista un asemenea proces, algoritmul se termina.
+
+Obs: La pasul 1 se cauta un proces care poate fi rulat pana la terminare
+ (el este caracterizat prin faptul ca cererile lui pot fi satisfacute cu
+ resursele disponibile in prezent); procesul respectiv va rula pana se va
+ termina, moment in care va elibera resursele detinute, care vor deveni din
+ nou disponibile; procesul va fi apoi marcat ca terminat (pasul 2).
+  Repetand pasii 1-2 obtinem o ordine in care putem rula procesele fara
+ interblocare; daca toate pot fi cuprinse in aceasta ordine, nici unul nu
+ se afla in interblocare; daca raman procese ce nu pot rula niciodata, ele
+ se afla in interblocare.
+  Desi algoritmul este nedeterminist, putand alege intre mai multe ordini
+ de rulare, rezultatul final este acelasi.
+
+                                      /0 0 1 0\    /2 0 0 1\
+Exemplu: E=(4,2,3,1), A=(2,1,0,0), C= |2 0 0 1|, R=|1 0 1 0| (3 procese)
+                                      \0 1 2 0/    \2 1 0 0/
+
+       alegere             A    
+      --------------------------
+         3             (2,2,2,0)
+         2             (4,2,2,1)
+         1             (4,2,3,1)
+
+      ==> sistemul nu contine nici o interblocare;
+
+                    /2 0 0 1\
+        Varianta: R=|2 1 0 1| ==> interblocare.
+                    \2 1 0 0/
+
+
+Cateva metode de restaurare a sistemului in urma interblocarii a.i. sistemul
+ sa functioneze din nou (nici una nu este atractiva in mod special):
+
+Restaurarea prin preemptiune (recovery through preemption):
+-----------------------------------------------------------
+
+ In unele cazuri este posibil ca o resursa sa fie luata temporar de la
+actualul detinator si alocata altui proces; in acest scop poate fi necesara
+interventia manuala, in special in SO pentru prelucrarea pe loturi (batch
+processing) ce ruleaza pe calculatoare de talie mare (mainframe).
+
+ De ex. pentru a lua o imprimanta de la procesul care o detine, acesta
+este suspendat (marcat ca nerulabil), operatorul pune foile deja printate
+de el intr-un teanc separat, se aloca imprimanta altui proces, iar cand
+acesta se termina operatorul pune teancul la loc si reporneste procesul
+initial.
+
+ Posibilitatea de a lua resursa de la un proces, a o da altui proces sa o
+foloseasca si apoi de a o returna fara ca procesul initial sa observe
+depinde mult de natura resursei. Restaurarea in aceasta maniera este deseori
+dificila sau imposibila. Alegerea procesului care va fi suspendat depinde
+mult de resursele lui, daca pot fi returnate usor sau nu.
+
+Restaurarea prin revenire (recovery through Rollback):
+------------------------------------------------------
+
+ Sistemul poate crea automat sau la comanda PUNCTE DE RELUARE sau VERIFICARE
+(CHECKPOINTS) pentru procese - practic se scrie starea procesului intr-un
+fisier, a.i. ulterior sa poata fi repornit din acel punct; checkpoint-ul
+contine pe langa imaginea memoriei si starea resurselor (ce resurse sunt
+alocate in acel moment procesului respectiv). Pentru mai multa eficienta,
+noile checkpoint-uri trebuie sa nu le suprascrie pe cele vechi ci sa fie
+salvate in fisiere noi, a.i. pe masura ce procesul se executa se acumuleaza
+o secventa de mai multe checkpoint-uri.
+
+ Cand este detectata o interblocare, se determina resursele necesare, apoi
+un proces care detine o resursa de care este nevoie in sistem este reluat
+de la un checkpoint anterior obtinerii acelei resurse, care va fi
+alocata acum unuia din procesele aflate in interblocare; tot ce a realizat
+procesul dupa acel checkpoint se pierde; cand procesul respectiv este
+repornit, el va incerca sa obtina accesul la resursa, dar va trebui sa
+astepte pana resursa va deveni disponibila.
+
+Restaurarea prin distrugerea proceselor:
+----------------------------------------
+
+ Metoda cea mai primitiva, dar si cea mai simpla de a rezolva o interblocare
+este distrugerea unuia sau mai multor procese.
+ O posibilitate este distrugerea unui proces dintr-un ciclu; daca celelalte
+tot nu isi pot continua executia, repetam distrugerea pana cand tot ciclul
+este eliminat.
+ Alta varianta este distrugerea unui proces ce nu se afla in ciclu, dar
+detine resurse de care au nevoie procese din ciclu.
+
+ Cand este posibil, e bine sa fie distruse procese care se pot executa din
+nou de la inceput fara efecte nedorite. De exemplu o compilare se poate
+relua intotdeauna (daca procesul este distrus in timpul rularii, noua
+rulare nu este influientata de cea precedenta). Un proces care actualizeaza
+o baza de date nu poate fi intotdeauna rulat in siguranta a doua oara,
+deoarece va modifica de doua ori inregistrarile pe care a apucat sa le
+modifice la prima rulare.
+
+2.5 Evitarea interblocarii:
+---------------------------
+
+ In discutia despre detectarea interblocarii am presupus ca atunci cand un
+proces cere resurse, le cere pe toate odata (matricea R de mai inainte). In
+majoritatea sistemelor insa resursele sunt cerute pe rand. Sistemul trebuie
+sa decida daca acordarea resursei este sigura si sa o acorde doar cand este
+sigura. Se va folosi un algoritm care evita interblocarile facand mereu
+alegerea potrivita.
+ 
+Traiectoriile resurselor (resource trajectories):
+-------------------------------------------------
+
+ Principalii algoritmi de evitare a interblocarilor se bazeaza pe conceptul
+de stari sigure (safe states); conceptul de siguranta se poate studia intr-o
+maniera grafica; exenplu:
+
+Fie procesele A, B si resursele inprimanta si plotter; evolutia celor doua
+procese poate fi redata prin diagrama urmatoare, unde axele orizontala/
+verticala reprezinta evolutia lui A/B in sensul numarului de instructiuni
+executate:
+
+               B                                    
+               |                                    u * (ambele procese     
+ imprimanta    |            |      |      |      |       s-au terminat)
+     ^       I8|-------------------------------------------
+     |         |            |//////|//////|      |
+     |         |            |//////|//////|      |
+     |  ^    I7|-------------------------------------------
+     |  |      |            |//////|XXXXXX|\\\\\\|
+     |  |      |            |//////|XXXXXX|\\\\\\|
+     V  |    I6|-------------------------------------------
+        |      |            |      |\\\\\\|\\\\\\|
+        |      |            |   t  |\\\\\\|\\\\\\|
+        V    I5|----------------*--------------------------
+     plotter   |            |   o  |      |      |
+               |      r     |   o  |      |      |
+               |      *ooooooooo*  |      |      |
+               |      o     |    s |      |      |
+               |      o     |      |      |      |
+               *oooooo*------------------------------------ A
+               p      q     I1     I2     I3     I4
+               imprimanta   <------------->
+                                   <-------------> plotter
+
+ A ocupa imprimanta intre instructiunile I1 - I3 si plotterul intre I2 - I4;
+B ocupa imprimanta intre I6 - I8 si plotterul intre I5 - I7;
+ orice punct al diagramei reprezinta starea combinata a celor doua procese
+la un moment dat;
+ se pleaca din starea p, cand nici un proces inca nu a executat nimic, apoi
+in functie de deciziile de planificare, care comuta intre A,B, se pot
+obtine diverse traiectorii, de ex. p-q-r-s-t-... pana se ajunge in u, unde
+ambele procese s-au terminat; daca sistemul are un singur procesor,
+traiectoriile pot merge doar orizontal sau vertical (niciodata oblic);
+de asemenea, pot merge doar spre dreapta si in sus (procesele nu pot rula
+inapoi);
+ regiunile hasurate sunt zone unde imprimanta, plotterul sau ambele ar fi
+ocupate simultan de ambele procese - cu regula excluderii mutuale nici un
+proces nu poate intra intr-o asemenea regiune.
+
+ Daca sistemul va intra vreodata in zona regiunea delimitata de I1,I2,I5,I6,
+el va ajunge in punctul de intersectie al lui I2 cu I6, moment in care vom
+avea interblocare. Intreaga aceasta regiune este nesigura si nu trebuie
+intrat in ea. Astfel, daca s-a ajuns in t, singurul lucru care mai poate fi
+facut este rularea procesului A pana ajunge la I4, moment din care orice
+traiectorie catre u va fi buna.
+
+ Este important de observat ca in punctul t procesul B a cerut o resursa;
+sistemul trebuie sa decida daca i-o acorda; daca da, sistemul va intra
+intr-o regiune nesigura si se va ajunge la interblocare; pentru evitarea
+interblocarii B trebuie suspendat pana cand A a cerut si a eliberat
+plotterul.
+
+Stari sigure si nesigure:
+-------------------------
+
+ Algoritmii de evitare a interblocarii pe care ii vom studia folosesc
+structurile de date din algoritmul lui Coffman de mai inainte.
+ In orice moment exista o stare curenta constand din: E, A, C, R.
+ O stare este SIGURA (SAFE) daca sistemul nu se afla in interblocare in
+acel moment si exista o ordine de planificare in care fiecare proces poate
+rula pana la terminare, chiar daca procesele ar cere deodata numarul lor
+maxim de resurse.
+
+ Exemplu in care avem un singur tip de resursa - deci C si R se pot
+reprezenta ca doua coloane intr-o aceeasi matrice, ale carei linii corespund
+proceselor (de fapt coloanele vor reprezenta numarul de resurse detinute,
+respectiv numarul maxim de resurse de care ar mai avea nevoie fiecare
+proces); presupunem ca avem procesele A, B, C, in total sunt 10 resurse, iar
+starea de la care plecam este (a):
+
+        detine   max        
+----------------------      deci:
+|   A  |   3  |   9  |      A detine 3 resurse si ar putea avea nevoie
+----------------------          in final de 9;
+|   B  |   2  |   4  |      B detine 2 resurse si ar putea avea nevoie
+----------------------          in final de 4;
+|   C  |   2  |   7  |      C detine 2 resurse si ar putea avea nevoie
+----------------------          in final de 7;
+      libere: 3             in total sunt alocate 7 resurse si libere 3;
+         (a)
+
+starea (a) este sigura, deoarece exista o secventa de alocari ce permite
+tuturor proceselor sa-si termine corect executia, de ex:
+
+      d   m          d   m          d   m          d   m          d   m
+-------------  -------------  -------------  -------------  -------------
+| A | 3 | 9 |  | A | 3 | 9 |  | A | 3 | 9 |  | A | 3 | 9 |  | A | 3 | 9 |
+-------------  -------------  -------------  -------------  -------------
+| B | 2 | 4 |  | B | 4 | 4 |  | B | 0 | - |  | B | 0 | - |  | B | 0 | - |
+-------------  -------------  -------------  -------------  -------------
+| C | 2 | 7 |  | C | 2 | 7 |  | C | 2 | 7 |  | C | 7 | 7 |  | C | 0 | - |
+-------------  -------------  -------------  -------------  -------------
+  libere: 3      libere: 1      libere: 5      libere: 0      libere: 7
+    (a)            (b)            (c)            (d)            (e)
+
+deci se ruleaza intai B, acesta cere inca 2 resurse ajungandu-se in (b),
+apoi se termina eliberand resursele si ajungandu-se in (c), apoi se ruleaza
+C ajungandu-se in (d), apoi C se termina ajungandu-se in (e), moment in
+care se poate rula A;
+ presupunem insa ca din starea (a) procesul A cere si primeste 1 resursa,
+ajungandu-se in starea:
+
+      d   m
+-------------
+| A | 4 | 9 |
+-------------
+| B | 2 | 4 |
+-------------
+| C | 2 | 7 |
+-------------
+  libere: 2
+    (f)
+
+de aici, planificatorul ar putea rula B pana cere toate resursele si apoi se
+termina, trecandu-se succesiv prin starile:
+
+      d   m          d   m          d   m
+-------------  -------------  -------------
+| A | 4 | 9 |  | A | 4 | 9 |  | A | 4 | 9 |
+-------------  -------------  -------------
+| B | 2 | 4 |  | B | 4 | 4 |  | B | 0 | - |
+-------------  -------------  -------------
+| C | 2 | 7 |  | C | 2 | 7 |  | C | 2 | 7 |
+-------------  -------------  -------------
+  libere: 2      libere: 0      libere: 4
+    (f)            (g)            (h)
+
+dupa care nu se mai poate continua - fiecare dintre A si C necesita 5
+resurse si mai sunt libere 4;
+deci, starea (f) nu este sigura;
+
+decizia de planificare din starea (a) in starea (f) a trecut sistemul
+dintr-o stare sigura intr-una nesigura si deci cererea lui A de 1 resursa
+nu ar fi trebuit aprobata.
+
+Subliniem: o stare nesigura nu este una in care sistemul se afla in 
+interblocare; de ex. din starea (f) sistemul mai poate rula un timp, B
+chiar se poate termina; de asemenea, e posibil ca ulterior acestei stari
+A sa elibereze o resursa inainte de a cere altele, a.i. C se poate termina
+si nu se mai ajunge la interblocare; deci diferenta dintre o stare sigura
+si una nesigura este ca dintr-o stare sigura sistemul poate GARANTA ca
+toate procesele se pot termina, iar dintr-o stare nesigura nu poate garanta.
+
+Nota personala:
+1. Algoritmul de mai sus seamana cu algoritmul lui Coffman de
+ detectarea a interblocarii cu mai multe resurse din fiecare tip, doar ca
+ aici matricea R si rezultatul algoritmului au semnificatii diferite:
+ - in primul caz, R reprezenta un ansamblu de cereri facute simultan de
+ procese - proceesul Pi cerea la momentul curent Rij resurse de tip j
+ (deodata), iar algoritmul determina daca aceste cereri pot fi satisfacute
+ intr-o ordine; daca nu, starea respectiva este o interblocare;
+ - in al doilea caz, R reprezinta necesarul maxim de resurse al proceselor
+ pe parcursul rularii lor, nefiind neaparat cerute toate odata - procesul
+ Pi avea nevoie pe durata executie lui de maxim Rij resurse de tip j,
+ neinsemnand neaparat ca le va cere pe toate odata, iar algoritmul determina
+ daca cererile ulterioare ale proceselor pot fi satisfacute intr-o ordine,
+ indiferent cum vor fi formulate, chiar si in cazul cel mai defavorabil cand
+ fiecare isi va cere toate resursele ramase deodata; daca nu, starea este
+ nesigura, chiar daca nu este o interblocare (nu avem garantia ca
+ interblocarea se poate evita); altfel spus, starea este nesigura d.d. in
+ cazul cel mai defavorabil este o interblocare.
+2. Punctele din interiorul regiunii delimitata de instructiunile I1,I2,I5,I6
+ in diagrama de mai devreme reprezentau zone nesigure intr-un sens mai tare:
+ indiferent cum vor fi formulate cererile ulterioare ale proceselor (nu
+ numai in cazul cel mai defavorabil) se ajunge la interblocare;
+
+Algoritmul bancherului pentru o singura resursa:
+------------------------------------------------
+
+ Un algoritm ce poate evita interblocarile ii apartine lui Dijkstra (1965);
+el s.n. ALGORITMUL BANCHERULUI (BANKER'S ALGORITHM) si este o extensie a
+algoritmului de detectarea a interblocarii prezentat mai devreme.
+
+ Algoritmul verifica daca acceptarea unei cereri duce la o stare nesigura;
+daca da, este respinsa (amanata), daca nu, este indeplinita.
+
+ Situatia seamana cu cea a unui bancher care a deschis linii de credit unui
+grup de clienti, fiecare primind un numar de unitati de credit si putand
+veni din cand in cand sa faca imprumuturi in limita numarului lor de
+unitati, iar bancherul fiind constient ca nu toti au nevoie imediat de
+creditul lor maxim a rezervat un numar mai mic de unitati disponibile;
+atunci, daca un client vine la un moment dat si mai cere un imprumut
+(in limita numarului sau de unitati), bancherul trebuie sa verifice daca
+acordandu-i imprumutul, cu unitatile disponibile ramase banca poate
+functiona indiferent ce alte cereri vin ulterior; daca nu, cererea este
+respinsa.
+
+Exemplu: fie procesele A - D, 10 unitati de resursa disponibile si starile:
+
+      d   m          d   m          d   m
+-------------  -------------  -------------
+| A | 0 | 6 |  | A | 1 | 6 |  | A | 1 | 6 |
+-------------  -------------  -------------
+| B | 0 | 5 |  | B | 1 | 5 |  | B | 2 | 5 |
+-------------  -------------  -------------
+| C | 0 | 4 |  | C | 2 | 4 |  | C | 2 | 4 |
+-------------  -------------  -------------
+| D | 0 | 7 |  | D | 4 | 7 |  | D | 4 | 7 |
+-------------  -------------  -------------
+  libere: 10      libere: 2      libere: 1
+    (a)            (b)            (c)
+
+(a) este starea initiala si este sigura;
+daca la un moment dat se ajunge in starea (b), aceasta este de asemenea
+ sigura - aici se pot amana toate cererile cu exceptia lui C, care se poate
+ termina si elibera cele 4 resurse, dupa care se vor putea da resursele
+ necesare fie lui D, fie lui B, etc;
+daca din starea (b) s-ar mai satisface o cerere a lui B de 1 resursa
+ (unitate de credit), s-ar ajunge in starea (c), care e nesigura - daca
+ toate procesele (clientii) ar cere deodata resursele ramase (imprumuturile
+ maxime), sistemul (bancherul) nu ar putea satisface pe nici unul din ele si
+ am avea interblocare;
+o stare nesigura nu TREBUIE sa duca neaparat la interblocare, deoarece este
+ posibil ca un client sa nu aibe nevoie de intreaga linie de credit
+ disponibila, dar bancherul nu trebuie sa mizeze pe acest comportament.
+
+Algoritmul bancherului pentru resurse multiple:
+-----------------------------------------------
+
+ Ca si in cazul cu o resursa:
+- consideram matricile E, A, C, R, cu semnificatiile:
+  C = cate resurse din fiecare clasa sunt alocate in prezent fiecarui
+    proces;
+  R = cate resurse mai are nevoie un proces pentru a se termina
+    (nu neaparat le cere pe toate odata);
+- sistemul trebuie sa cunoasca nevoile totale de resurse ale proceselor
+ inainte de a se executa, pentru a pute calcula in orice moment R;
+- consideram vectorii:
+  E = resursele existente;
+  A = resursele disponibile;
+- se poate considera si vectorul:
+  P = resursele detinute (este suma liniilor lui C); rezulta E = A + P;
+
+Algoritm (Dijkstra, 1965):
+1. Cauta un proces nemarcat i pentru care Ri <= A (ca vectori);
+2. Daca exista un asemenea i, se presupune ca procesul i cere toate
+ resursele de care are nevoie (se garanteaza ca se poate) si se termina;
+ marcheaza acest proces ca terminat si adauga resursele lui, adica Ci, la A,
+ apoi reia de la pasul 1;
+3. Daca la pasul 1 nu mai e gasit nici un i, algoritmul se termina;
+ starea initiala este sigura d.d. in acest moment toate procesele sunt
+ marcate.
+Daca exista mai multe procese care pot fi alese la pasul 1, nu conteaza
+care este selectat.
+
+Exemplu de stare sigura (procesele A - E si 4 tipuri de resurse):
+
+---------------------     ---------------------
+| A | 3 | 0 | 1 | 1 |     | A | 1 | 1 | 0 | 0 |  E = (6, 3, 4, 2)
+---------------------     ---------------------  A = (5, 3, 2, 2)
+| B | 0 | 1 | 0 | 0 |     | B | 0 | 1 | 1 | 2 |  P = (1, 0, 2, 0)
+---------------------     ---------------------
+| C | 1 | 1 | 1 | 0 |     | C | 3 | 1 | 0 | 0 |
+---------------------     ---------------------
+| D | 1 | 1 | 0 | 1 |     | D | 0 | 0 | 1 | 0 |
+---------------------     ---------------------
+| E | 0 | 0 | 0 | 0 |     | E | 2 | 1 | 1 | 0 |
+---------------------     ---------------------
+ C (resurse alocate)       R (resurse de care mai este nevoie)
+
+Descriere a algoritmului bancherului in pseudocod, cf. Wikipedia:
+
+P - set of processes
+Mp - maximal requirement of resources for process p
+Cp - current resources allocation process p
+A - currently available resources
+
+while (P != {}) {
+    found = FALSE;
+    foreach (p in P) {
+        if (Mp - Cp <= A) {
+             /* p can obtain all it needs.         */
+             /* assume it does so, terminates, and */
+             /* releases what it already has.      */
+             A = A + Cp ;
+             P = P - {p};
+             found = TRUE;
+        }
+    }
+    if (! found) return FAIL;
+}
+return OK;
+
+ In practica, algoritmul bancherului nu este foarte util, deoarece este greu
+ca sistemul sa cunoasca in avans necesarul maxim de resurse ale unui proces;
+de asemenea, numarul de procese nu este fix, variaza dinamic (de ex. pe
+masura ce noi utilizatori se conecteaza/deconecteaza), iar unele resurse pot
+disparea brusc (unitatile de banda se pot defecta).
+
+2.6 Prevenirea interblocarii:
+-----------------------------
+
+ Am vazut ca evitarea interblocarii este aproape imposibila, pentru ca
+necesita informatii despre cereri viitoare, care in general nu sunt
+cunoscute. Atunci putem incerca sa prevenim interblocarea asigurand ca cel
+putin una din cele 4 conditii ale lui Coffman nu este indeplinita niciodata.
+
+Combaterea conditiei de excludere mutuala:
+------------------------------------------
+
+ Daca nici o resursa nu poate fi alocata exclusiv unui singur proces, nu
+vom avea niciodata interblocari. Pentru resursele care in mod nativ trebuie
+alocate exclusiv, se pot crea resurse logice intermediare, care pot fi
+alocate neexclusiv, si un proces care coreleaza resursa intermediara cu
+cea initiala.
+
+ De exemplu pentru imprimanta se creaza o coada de asteptare (spooling), in
+care mai multe procese pot genera date simultan, iar singurul proces care
+cere efectiv impromanta este procesul care gestioneaza tiparirea (printer
+daemon in UNIX/Linux); deoarece acest proces nu cere alte resurse, astfel
+se elimina interblocarea pentru imprimanta.
+
+Limitari:
+- nu toate dispozitivele pot face spooling - de ex. tabela de procese;
+- competitia pentru spatiul de pe disc pentru spooling poate duce ea la
+ interblocare; de ex. doua procese umplu fiecare cate 1/2 din spatiu si
+ nici unul n-a terminat de produs datele de iesire; atunci, daca procesul
+ ce gestioneaza imprimanta a inceput deja tiparirea, imprimanta va
+ ramane nefolosita asteptand ca procesul ale carui prime date au fost
+ printate sa furnizeze si restul datelor (de aceea, procesul care
+ gestioneaza imprimanta este facut a.i. sa tipareasca doar atunci cand
+ sunt disponibile toate datele de iesire); oricum, avem o interblocare
+ pe disc;
+
+Idee frecvent aplicata: evitati alocarea unei resurse atunci cand nu este
+ absolut necesara si incercati sa va asigurati ca vor exista cat mai
+ putine procese care ar putea cere resursa.
+
+
+Combaterea conditiei de detinere si asteptare:
+----------------------------------------------
+
+ Daca am putea impiedica procesele care detin resurse sa mai astepte
+preluarea altor resurse, am putea preveni interblocarea. Este o strategie
+mai promitatoare.
+
+Metode:
+- impunem proceselor sa isi ceara toate resursele de la inceputul executiei;
+ daca sunt disponibile, procesul isi va aloca tot ce ii trebuie si va putea
+ rula pana se va termina; daca nu sunt disponibile toate resursele, procesul
+ nu va aloca nimic ci doar va astepta;
+  in acest sens, unele sisteme mari de prelucrare pe loturi (mainframe
+ batch systems) cer utilizatorului sa listeze toate resursele pe prima linie
+ a fiecarei lucrari (job);
+  limitari:
+  * multe procese nu stiu cate resurse vor avea nevoie inainte de a incepe
+   sa ruleze (de fapt, daca ar fi stiut, am fi putut aplica algoritmul
+   bancherului);
+  * resursele nu vor fi folosite in mod optim; de ex. daca un proces citeste
+   date de pe o banda, le analizeaza o ora, apoi scrie rezultatul atat pe
+   banda cat si la imprimanta, va bloca si banda si imprimanta o ora;
+- impunem fiecarui proces care cere o resursa sa elibereze temporar toate
+ resursele pe care le detine; apoi va incearca sa ia dintr-o data tot ce are
+ nevoie.
+
+Combaterea conditiei de lipsa a preemptiei:
+-------------------------------------------
+
+ Este mai putin promitatoare decat combaterea conditiei 2. Daca unui proces
+i s-a alocat imprimanta si este in timpul printarii, luarea fortata de la el
+a imprimantei pentru ca un plotter cerut nu este disponibil ar fi derutanta
+in cel mai bun caz si imposibila in cazul cel mai rau.
+
+Combaterea conditiei de asteptare circulara:
+--------------------------------------------
+
+ Modalitati de combatere:
+- impunem regula ca orice proces sa aibe dreptul la o singura resursa la
+ un moment dat; daca are nevoie de o a doua, trebuie sa o elibereze pe
+ prima;
+  limitari: de ex. daca un proces are nevoie sa scoata la imprimanta un
+ fisier urias de pe banda magnetica, restrictia este inacceptabila (el
+ trebuie sa detina si banda si imprimanta);
+- realizarea unei numerotari globale a resurselor si impunerea regulii ca
+ procesele pot cere oricate resurse vor, dar cererile trebuie facute in
+ ordinea numerelor -  de ex. un proces poate cere intai o imprimanta si
+ apoi o banda, dar nu intai o banda si apoi o imprimanta; 
+  intr-adevar, procesul ce detine resursa cu numarul cel mai mare nu va
+ cere o resursa deja alocata - cel mult va cere resurse cu numere si mai
+ mari, care sunt disponibile; in final el se va termina si va elibera
+ resursele detinute; atunci un alt proces va detine resursa cu numarul cel
+ mai mare, etc.; deci exista un scenariu in care toate procesele se
+ termina, deci nu poate aparea interblocarea;
+- varianta a modalitatii anterioare: renuntam la cerinta ca resursele sa fie
+ obtinute intr-o secventa strict crescatoare si impunem doar ca nici un
+ proces sa nu ceara o resursa cu un numar mai mic decat ceea ce detine deja;
+  astfel, daca un proces cere initial 9 si 10 si apoi le elibereaza pe
+ ambele, este ca si cand ar incepe din nou, asa ca nu este nici un motiv ca
+ sa i se interzica de acum cererea resursei 1;
+  limitari: resursele pot fi atat de multe si diverse (intrari in tabela de
+ procese, spatiul de pe disc alocat pentru spooling, inregistrari din baze
+ de date, etc) ar putea fi imposibila alegerea unei ordini care sa satisfaca
+ pe toata lumea.
+
+Sintetizam principalele abordari ale prevenirii interblocarii:
+
+Conditie               Abordare
+------------------------------------------------------------
+Excludere mutuala      Spooling pentru toate resursele
+Detine si asteapta     Cererea initiala a tuturor resurselor
+Fara preemptie         Luarea fortata a resurselor
+Asteptare circulara    Ordonarea numerica a resurselor
+
+2.7 Alte probleme legate de interblocari:
+-----------------------------------------
+
+Blocarea in doua faze (Two-Phase Locking):
+------------------------------------------
+
+ Evitarea sau prevenirea interblocarii nu sunt promitatoare in general, dar
+pentru aplicatii specifice exista algoritmi buni.
+
+Blocarea in doua faze: in prima faza procesul incearca sa blocheze pe rand
+ accesul la toate resursele de care are nevoie; daca reuseste, trece la faza
+ a doua, cand acceseaza resursele si apoi deblocheaza accesul; daca in
+ timpul primei faze intalneste o resursa deja blocata, deblocheaza toate
+ resursele si reia de la faza 1.
+
+ Abordarea seamana cu cererea in avans a tuturor resurselor necesare, sau
+cel putin inainte de a se realiza ceva ireversibil.
+
+ Se aplica de ex. pentru actualizarea inregistrarilor din baze de date
+(resursele sunt inregistrarile).
+
+ Limitari: strategia nu este aplicabila in general, de ex:
+- in sistemele de timp real nu este acceptabila intreruperea si reluarea
+ doar pentru ca o resursa nu este disponibila;
+- daca procesul a citit/scris mesaje in retea, a actalizat fisiere, in
+ general daca a facut ceva ce nu poate fi reluat in siguranta, atunci
+ nu este acceptabila reluarea.
+
+ Metoda se aplica doar cand programatorul are lucrurile aranjate atent, a.i.
+programul sa poata fi oprit in orice punct al primei faze si reluat (nota
+personala: sa nu fi facut operatii irepetabile intre punctele primei faze).
+
+Interblocari care nu implica resurse:
+-------------------------------------
+
+ Exemplu: doua procese sunt interblocate (de ex. prin semafoare), fiecare
+asteptand ca celalalt sa faca o prelucrare - a se vedea problemele de
+sincronizare din cursul 6.
+
+Infometare (starvation, resource starvation):
+---------------------------------------------
+
+ Uneori politica ce stabileste cine sa ia o resursa si cand, desi este
+rezonabila, poate conduce la ramanerea in asteptare pe termen nelimitat a
+unor procese, care nu vor fi niciodata luate in considerare, desi nu se afla
+in inteblocare.
+
+ Exemplu: algoritmul de alocare a imprimantei poate alege sa ca ea sa fie
+data procesului cu fisierul cel mai mic de tiparit (presupunand ca
+informatia este disponibila); atunci vor fi deserviti eficient clientii cu
+fisiere mici; dar daca un proces are un fisier mare insa exista un flux
+constant de procese cu fisiere mici, imprimanta nu ii va fi alocata
+niciodata procesului cu fisierul mare (infometare).
+
+ Infometarea se poate evita prin folosirea unei politici de tip primul
+venit - primul servit.
+
+
+Dragulici Dumitru Daniel,
+Facultatea de matematica si informatica,
+Universitatea Bucuresti,
+2008
