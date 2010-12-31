@@ -2,20 +2,24 @@ note seminar:
 1p        - prezente: minim 10
 9p (3*3p) - 3 probleme (rezolvarea acestora va fi prezentata prin interfete grafice)
 termen limita: saptamana 13
-tema 1 seminar: intersectiile a n segmente paralele fie cu Ox fie cu Oy (rezolvare de complexitate O(NlogN)) (pb din seminarul 1) 
+tema 1 seminar: intersectiile a n segmente paralele fie cu Ox fie cu Oy (rezolvare de 
+complexitate O(NlogN)) (pb din seminarul 1) 
 tema 2 seminar: componentele biconexe ale unui graf conex neorientat
 
 note laborator:
 2,5p - test java: saptamana 6
 
-2,5p - proiect algoritmi genetici: prima etapa a algoritmului va fi salvata intr-un fisier(cromozomii din populatia initiala, 
+2,5p - proiect algoritmi genetici: prima etapa a algoritmului va fi salvata intr-un 
+fisier(cromozomii din populatia initiala, 
 valoarea functiei f pentru fiecare cromozom, 
 intervalele [s0,s1], [s1,s2]...[sn-1,sn], 
 valorile selectate aleator pentru crossover, 
 cromozomii parinte si cromozomii fiu rezultati, 
 cromozomii rezultati in urma mutatiei.)
-Fisierul va contine si valoarea maxima atinsa dupa ultima etapa, precum si cromozomul pentru care este atinsa aceasta valoare.
-Pentru selectarea cromozomilor in etapa de selectie se va folosi algoritmul de cautare binara.   
+Fisierul va contine si valoarea maxima atinsa dupa ultima etapa, precum si cromozomul 
+pentru care este atinsa aceasta valoare.
+Pentru selectarea cromozomilor in etapa de selectie se va folosi algoritmul de cautare 
+binara.   
 termen limita: saptamana 7
 
 2.5p - test tehnici de programare: saptamana 12

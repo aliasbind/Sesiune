@@ -2,4 +2,5 @@ Se citesc din fisierul date.in informatiile obtinute in urma unui studiu de piat
 Pentru fiecare produs exista o linie care contine urmatoarele informatii:
 denumire_produs; nume_furnizor1; pret1; nume_furnizor2; pret2; ... nume_furnizor; pretn;
 1. Se se creeze un arbore sortat de produse. Produsele vor fi ordonate in functie de media preturilor.
-2. Se se afiseze produsele (parcurgand arborele sortat creat). Pentru fiecare produs se vor afisa in ordine alfabetica furnizorii si preturile propuse de acestia.
+2. Se se afiseze produsele (parcurgand arborele sortat creat). Pentru fiecare produs se vor afisa in ordine 
+alfabetica furnizorii si preturile propuse de acestia.
