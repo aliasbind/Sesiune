@@ -3,7 +3,7 @@ cerinta obligatorie: cel putin o pb din fiecare metoda
 
 Greedy:
 
-1. (1p) Se dau n obiecte si n+1 cutii, intr-o cutie putand fi asezat maxim un obiect. Astfel, daca obiectele sunt asezate în cutii ramane o singura cutie goala. Un obiect poate fi mutat din cutia lui in cutia goala. Data o asezare initiala a obiectelor in cutii si o asezare finala, sa se determine o succesiune minima de mutari necesare pentru a ajunge de la asezarea initiala la cea finala.
+1. (1p) Se dau n obiecte si n+1 cutii, intr-o cutie putand fi asezat maxim un obiect. Astfel, daca obiectele sunt asezate Ã®n cutii ramane o singura cutie goala. Un obiect poate fi mutat din cutia lui in cutia goala. Data o asezare initiala a obiectelor in cutii si o asezare finala, sa se determine o succesiune minima de mutari necesare pentru a ajunge de la asezarea initiala la cea finala.
 
 0 -- cutia goala
 
@@ -22,21 +22,21 @@ numar maxim de cuburi in care un cub nu poate fi asezate pe un cub de aceeasi cu
 
 Backtracking
 
-3. (1p) Se da o tabla de sah de dimensiune nxn. Pe aceastã tablã, unele pãtrãtele sunt libere, iar altele sunt blocate. Determinati care este numãrul maxim de regine care pot fi plasate pe tabla de sah, astfel încât oricare doua regine sa nu se atace una pe alta. O regina poate fi plasata numai pe un pãtrãtel liber. Douã regine se atacã una pe alta dacã sunt pe aceeasi linie, coloana sau diagonala si toate pãtrãtelele dintre cele 2 regine (de pe linia, coloana sau diagonala respectiva) sunt libere. Fie Q numãrul maxim de regine care pot fi asezate pe tabla. In plus, trebuie sa determinati si numãrul de posibilitãti de a aseza cele Q regine pe tabla.
+3. (1p) Se da o tabla de sah de dimensiune nxn. Pe aceastÄƒ tablÄƒ, unele pÄƒtrÄƒtele sunt libere, iar altele sunt blocate. Determinati care este numÄƒrul maxim de regine care pot fi plasate pe tabla de sah, astfel Ã®ncÃ¢t oricare doua regine sa nu se atace una pe alta. O regina poate fi plasata numai pe un pÄƒtrÄƒtel liber. DouÄƒ regine se atacÄƒ una pe alta dacÄƒ sunt pe aceeasi linie, coloana sau diagonala si toate pÄƒtrÄƒtelele dintre cele 2 regine (de pe linia, coloana sau diagonala respectiva) sunt libere. Fie Q numÄƒrul maxim de regine care pot fi asezate pe tabla. In plus, trebuie sa determinati si numÄƒrul de posibilitÄƒti de a aseza cele Q regine pe tabla.
 
-4. (1p) O tablã nxm are în fiecare pãtrãticã o literã mare. Pe aceastã tablã se poate juca un joc cu un singur jucãtor astfel : la începutul jocului în coltul din stânga-sus al tablei este plasatã o piesã. În fiecare moment jucãtorul poate muta aceastã piesã într-o pozitie vecinã (sus, dreapta, jos, stânga) cu singura restrictie ca în pozitia respectivã sã nu existe o literã peste care piesa a mai trecut. Scopul este de a mentine piesa în joc cât mai mult posibil. Sã se determine numãrul maxim de mutãri pe care le poate face jucãtorul si un exemplu de sir maxim de mutãri
+4. (1p) O tablÄƒ nxm are Ã®n fiecare pÄƒtrÄƒticÄƒ o literÄƒ mare. Pe aceastÄƒ tablÄƒ se poate juca un joc cu un singur jucÄƒtor astfel : la Ã®nceputul jocului Ã®n coltul din stÃ¢nga-sus al tablei este plasatÄƒ o piesÄƒ. Ã®n fiecare moment jucÄƒtorul poate muta aceastÄƒ piesÄƒ Ã®ntr-o pozitie vecinÄƒ (sus, dreapta, jos, stÃ¢nga) cu singura restrictie ca Ã®n pozitia respectivÄƒ sÄƒ nu existe o literÄƒ peste care piesa a mai trecut. Scopul este de a mentine piesa Ã®n joc cÃ¢t mai mult posibil. SÄƒ se determine numÄƒrul maxim de mutÄƒri pe care le poate face jucÄƒtorul si un exemplu de sir maxim de mutÄƒri
 
-5. (0.5p) Sã se descompunã un numãr natural n în toate modurile posibile distincte ca sumã de numere prime. (recursiv)
+5. (0.5p) SÄƒ se descompunÄƒ un numÄƒr natural n Ã®n toate modurile posibile distincte ca sumÄƒ de numere prime. (recursiv)
 
-6. (0.5) Sã se determine toate partitiile unei multimi cu n elemente numerotate de la 1 la n.
+6. (0.5) SÄƒ se determine toate partitiile unei multimi cu n elemente numerotate de la 1 la n.
 
-7. (0.5) Se considerã o retea dreptunghiularã cu 2^m linii si 2^n coloane. Sã se atribuie nodurilor retelei numere distincte din multimea {0,1, ..., 2^(m+n)-1} astfel încât pentru orice douã vârfuri vecine (pe orizontalã sau vertical) reprezentarea lor binarã sã difere pe o unicã pozitie.
+7. (0.5) Se considerÄƒ o retea dreptunghiularÄƒ cu 2^m linii si 2^n coloane. SÄƒ se atribuie nodurilor retelei numere distincte din multimea {0,1, ..., 2^(m+n)-1} astfel Ã®ncÃ¢t pentru orice douÄƒ vÃ¢rfuri vecine (pe orizontalÄƒ sau vertical) reprezentarea lor binarÄƒ sÄƒ difere pe o unicÄƒ pozitie.
 
-8. (0.5p) Într-un grup de N persoane (numerotate de la 1 la N) fiecare persoanã se cunoaºte pe sine ºi cunoaºte eventual si alte persoane din grup. Sã se determine toate modurile în care cele N persoane se pot repartiza în echipe astfel încât orice persoanã din grup sã fie cunoscutã de cel puşin un membru al fiecãrei echipe.
+8. (0.5p) Ã®ntr-un grup de N persoane (numerotate de la 1 la N) fiecare persoanÄƒ se cunoaÈ™te pe sine È™i cunoaÈ™te eventual si alte persoane din grup. SÄƒ se determine toate modurile Ã®n care cele N persoane se pot repartiza Ã®n echipe astfel Ã®ncÃ¢t orice persoanÄƒ din grup sÄƒ fie cunoscutÄƒ de cel puÃ¾in un membru al fiecÄƒrei echipe.
 
-9. (0.5p) Dat un graf conex, sã se gãseascã toate posibilitãtile de a trasa muchiile sale fãrã a ridica creionul de pe hârtie pornind de la un vârf dat astfel încât fiecare muchie sã fie trasatã o singurã datã.
+9. (0.5p) Dat un graf conex, sÄƒ se gÄƒseascÄƒ toate posibilitÄƒtile de a trasa muchiile sale fÄƒrÄƒ a ridica creionul de pe hÃ¢rtie pornind de la un vÃ¢rf dat astfel Ã®ncÃ¢t fiecare muchie sÄƒ fie trasatÄƒ o singurÄƒ datÄƒ.
 
-10. (0.5p) Sã se afiseze toate posibilitãtile de deplasare ale unui cal pe o tablã de sah nxn (n dat) astfel încât calul sã treacã o singurã datã prin fiecare pãtrat de pe tablã.
+10. (0.5p) SÄƒ se afiseze toate posibilitÄƒtile de deplasare ale unui cal pe o tablÄƒ de sah nxn (n dat) astfel Ã®ncÃ¢t calul sÄƒ treacÄƒ o singurÄƒ datÄƒ prin fiecare pÄƒtrat de pe tablÄƒ.
 (cu interfata grafica 1p)
 
 Divide et Impera
