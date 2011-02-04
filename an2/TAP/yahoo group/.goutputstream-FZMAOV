@@ -1,0 +1,25 @@
+Total pentru 10: 8 puncte
+cerinta obligatorie: cel putin o pb din fiecare metoda
+
+Greedy:
+
+1. (1p) Se dau n obiecte si n+1 cutii, intr-o cutie putand fi asezat maxim un obiect. Astfel, daca obiectele sunt asezate în cutii ramane o singura cutie goala. Un obiect poate fi mutat din cutia lui in cutia goala. Data o asezare initiala a obiectelor in cutii si o asezare finala, sa se determine o succesiune minima de mutari necesare pentru a ajunge de la asezarea initiala la cea finala.
+
+0 -- cutia goala
+
+configuratie initiala 1 0 4 3 2 
+configuratie finala   4 2 3 1 0
+
+mutari: 
+2 din cutia 5 in cutia 2       1 2 4 3 0
+3 din cutia 4 in cutia 5       1 2 4 0 3
+1 din cutia 1 in cutia 4       0 2 4 1 3
+4 din cutia 3 in cutia 1       4 2 0 1 3
+3 din cutia 5 in cutia 3       4 2 3 1 0
+
+2. (1p) Se dau n cuburi cu laturile diferite doua cate doua. Fiecare cub are culoarea alba sau neagra. sa se construiasca un turn cu 
+numar maxim de cuburi in care un cub nu poate fi asezate pe un cub de aceeasi culoare sau cu latura mai mica. 
+
+Backtracking
+
+3. (1p) Se da o tabla de sah de dimensiune nxn. Pe aceast
