@@ -1,0 +1,23 @@
+Sa se scrie un modul pentru liste de numere naturale, incluzand modulul
+NAT predefinit, care sa contina o operatie m5 care sa primeasca la intrare
+o lista de numere naturale L si sa intoarca lista multiplilor de 5 din L.
+
+In urmatoarele exercitii subintelegem ca este vorba de module ce includ
+modulul NAT predefinit, precum si definitiile operatiilor cerute.
+
+Sa se determine lista numerelor prime cuprinse intre doua numere
+naturale date.
+
+Sa se determine daca un numar natural are toate cifrele impare, respectiv
+toate cifrele pare, fara a calcula lista cifrelor sale.
+
+Sa se parcurga un arbore binar in ordinea dreapta-radacina-stanga. Sa
+se calculeze inaltimea unui arbore binar. Sa se afiseze lista frunzelor
+unui arbore binar.
+
+Sa se sorteze crescator si descrescator un sir de numere naturale folosind
+un arbore binar de cautare.
+
+Sa se parcurga un arbore oarecare pe niveluri (adica in latime), de la
+dreapta la stanga. Sa se calculeze inaltimea unui arbore oarecare. Sa
+se afiseze lista frunzelor unui arbore oarecare.

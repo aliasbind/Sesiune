@@ -1,0 +1,81 @@
+mod! PERMUT{
+
+extending (NAT) ** din cauza operatiilor nrinv si nrmmic nu merge incluziune protecting
+
+[Nat < Permutare]
+
+op nil : -> Permutare
+op __ : Permutare Permutare -> Permutare {assoc id: nil}
+** permutarile vor fi ale multimii {1,2,...,N} si vor fi reprezentate prin liste de lungime
+** N continand toate numerele naturale de la 1 la N in ordini diferite, al J-lea element
+** dintr-o astfel de lista reprezentand valoarea permutarii in J
+op nrinv : Permutare -> Nat
+** aplicata unei permutari, nrinv intoarce numarul de inversiuni ale acelei permutari
+** aplicata unei liste oarecare, nrinv intoarce suma dupa fiecare element X al listei din
+** numarul elementelor din lista care se afla la dreapta lui X si sunt mai mici decat X
+** conventia care ne va folosi la scrierea definitiei recurente a lui nrinv va fi:
+** nrinv(nil) = 0
+op nrmmic : Nat Permutare -> Nat
+** nrmmic(X,P) intoarce numarul de elemente din P care sunt mai mici decat X
+** este corect si ne va servi la scrierea recursiei faptul ca nrmmic(X,nil) = 0 
+op inversa : Permutare -> Permutare ** determina inversa unei permutari ca functie bijectiva
+** functioneaza numai aplicata la permutari scrise corect in modul descris mai sus
+op linversa : Permutare Nat -> Permutare ** linversa(P,N) = inversa permutarii P a multimii
+** {1,2,...,N}; daca P si N nu sunt ca mai sus, atunci nu da rezultatul dorit  
+op lungime : Permutare -> Nat ** lungime(P) = numarul de elemente al listei P
+op detord : Nat Permutare Nat -> Permutare ** detord(X,P,Y) = coada inversei permutarii P
+** a multimii {1,2,...,Y}, incepand de la indicele X; merge doar pe date corecte
+op cauta : Nat Permutare -> Nat ** cauta(X,P) = valoarea inversei permutarii P in elementul
+** X, care este egala cu pozitia pe care se afla X in P; merge doar pe date de aceasta forma
+op _o_ : Permutare Permutare -> Permutare ** compunerea de permutari pe {1,2,...,N}
+op _de_ : Permutare Nat -> Nat ** P de X = valoarea permutarii P in elementul X, adica
+** al X-lea element al listei prin care este reprezentata permutarea P
+op _la_ : Permutare Nat -> Permutare ** ridicarea unei permutari la o putere naturala
+op id : Nat -> Permutare ** id(N) = functia identitate a multimii {1,2,...,N}, adica
+** lista 1 2 ... N
+
+vars X Y : Nat
+var Z : NzNat
+vars P Q : Permutare
+
+eq nrinv(nil) = 0 .
+eq nrinv(X P) = nrmmic(X,P) + nrinv(P) .
+
+eq nrmmic(X,nil) = 0 .
+ceq nrmmic(X,Y P) = nrmmic(X,P) if X <= Y .
+** am pus mai mic sau egal ca sa poata continua recursia si pentru liste cu duplicate date
+** ca parametru la nrinv
+ceq nrmmic(X,Y P) = s(nrmmic(X,P)) if X > Y .
+** s este operatia succesor din modulul predefinit NAT
+
+** operatiile de mai sus pot servi la selectarea permutarilor cu numar de inversiuni par si
+** a celor cu numar de inversiuni impar din lista de liste reprezentand toate permutarile
+** multimii {1,2..,N} care este obtinuta in modulul cu permutari oarecare (adica nu neaparat
+** circulare) din fisierul cu lectia 2 de laborator
+
+eq lungime(nil) = 0 .
+eq lungime(X P) = s(lungime(P)) .
+
+eq inversa(nil) = nil .
+eq inversa(X P) = linversa(X P,lungime(X P)) .
+
+eq linversa(P,X) = detord(1,P,X) .
+
+ceq detord(X,P,Y) = nil if X > Y .
+ceq detord(X,P,Y) = cauta(X,P) detord(s(X),P,Y) if X <= Y .
+
+eq cauta(X,X P) = 1 .
+ceq cauta(X,Y P) = s(cauta(X,P)) if X =/= Y .
+
+eq Q o nil = nil .
+eq Q o (X P) = (Q de X) (Q o P) .
+
+eq (X P) de 1 = X .
+ceq (X P) de Z = P de p(Z) if Z >= 2 . 
+
+eq id(0) = nil .
+eq id(Z) = id(p(Z)) Z .
+
+eq P la 0 = id(lungime(P)) .
+eq P la Z = (P la p(Z)) o P .
+}
