@@ -1,0 +1,155 @@
+mod! Exe{
+
+protecting (NAT)
+
+[Nat < Lista]
+
+op nil : -> Lista
+op __ : Lista Lista -> Lista {assoc id: nil}
+
+op m5 : Lista -> Lista
+** m5(L) = sublista multiplilor de 5 din L
+
+op nedivizibil : NzNat Nat -> Bool
+** nedivizibil(Z,X) = true daca si numai daca X nu se divide cu niciunul dintre
+** numerele naturale cuprinse intre Z si X inclusiv, ceea ce este echivalent cu faptul
+** ca X nu se divide cu niciunul dintre numerele naturale cuprinse intre Z si
+** radacina patrata a lui X inclusiv
+
+op prim : Nat -> Bool
+op lprime : Nat Nat -> Lista
+op alleven : Nat -> Bool
+op alleven2 : Nat -> Bool
+op allodd : Nat -> Bool
+
+vars N M : Nat
+var Z : NzNat
+var L : Lista
+
+eq m5(nil) = nil .
+ceq m5(N L) = N m5(L) if 5 divides N .
+ceq m5(N L) = m5(L) if not (5 divides N) .
+
+** START
+op invers : Lista -> Lista
+
+eq invers(nil) = nil .
+eq invers(N L) = oglinda(N) invers(L) .
+
+op oglinda : Nat -> Nat
+op oglindaaux : Nat Nat -> Nat
+
+ceq oglindaaux(N, M) = M if (N == 0) .
+eq oglindaaux(N, M) = oglindaaux(N quo 10, M * 10 + N rem 10) . 
+
+eq oglinda(0) = 0 .
+eq oglinda(N) = oglindaaux(N, 0) .
+** END
+
+** START
+op palindrom : Lista -> Lista
+op epalindrom : Nat -> Bool
+
+eq epalindrom(0) = true .
+ceq epalindrom(N) = true if (N == oglinda(N)) .
+ceq epalindrom(N) = false if (not(N == oglinda(N))) . 
+
+eq palindrom(nil) = nil .
+ceq palindrom(N L) = N palindrom(L) if epalindrom(N) .
+ceq palindrom(N L) = palindrom(L) if not(epalindrom(N)) .
+** END
+
+** START
+** p3 = operatie care sa primeasca drept input o lista de numere naturale L si sa intoarca
+** sublista lui L formata din puterile naturale ale lui 3 din L;
+op eputereaux : Nat Nat -> Bool
+op eputere : Nat -> Bool
+
+op putereaux : Nat Nat -> Nat
+op putere : Nat -> Nat
+
+op p3 : Lista -> Lista
+ceq eputereaux(N, M) = false if (N < M ) .
+ceq eputereaux(N, M) = true if (N == M) .
+eq eputereaux(N,M) = eputereaux(N, M * s(s(s(0)))) .
+
+eq eputere(0) = true .
+eq eputere(1) = false .
+ceq eputere(N) = eputereaux(N, 3) if N > 1 . 
+
+ceq putereaux(N, M) = 1 + putereaux(N, M quo 3) if eputere(M) .
+eq putereaux(N, 1) = 0 . 
+
+eq putere(1) = 0 .
+eq putere(N) = putereaux(N, N) .
+
+eq p3(nil) = nil .
+eq p3(1 L) = 0 p3(L) .
+ceq p3(N L) = putere(N) p3(L) if eputere(N) .
+ceq p3(N L) = p3(L) if not (eputere(N)) .
+** END
+
+** START
+** lnrdiv = operatie care sa primeasca drept input o lista de numere naturale L si sa
+** intoarca lista formata din numarul divizorilor naturali ai elementelor lui L, cu
+** conventia ca numarul divizorilor naturali ai lui 0 sa fie considerat 0 (pentru a nu mai
+** fi necesara introducerea unei constante infinit de sort Nat); de exemplu:
+** lnrdiv(2 4 1 0 3 2 5 6 2) = 2 3 1 0 2 2 2 4 2
+op nrdivaux : Nat Nat -> Nat
+op nrdiv : Nat -> Nat
+op lnrdiv : Lista -> Lista
+
+ceq nrdivaux(N, M) = 1 if ( M == N ) .
+ceq nrdivaux(N, M) = 1 + nrdivaux(N, s(M)) if (M divides N) . 
+ceq nrdivaux(N, M) = nrdivaux(N, s(M)) if not (M divides N) .
+
+eq nrdiv(0) = 0 .
+eq nrdiv(1) = 1 .
+ceq nrdiv(N) = nrdivaux(N, 1) if N > 1 .
+
+eq lnrdiv(nil) = nil .
+eq lnrdiv(N L) = nrdiv(N) lnrdiv(L) .
+** END
+
+ceq nedivizibil(Z,N) = nedivizibil(s(Z),N) and not (Z divides N) if Z * Z <= N .
+ceq nedivizibil(Z,N) = true if Z * Z > N .
+
+eq prim(0) = false .
+eq prim(1) = false .
+ceq prim(N) = nedivizibil(2,N) if N > 1 .
+
+ceq lprime(N,M) = nil if N > M .
+ceq lprime(N,M) = N lprime(s(N),M) if prim(N) and N <= M .
+ceq lprime(N,M) = lprime(s(N),M) if (not prim(N)) and N <= M .
+
+** START
+** pp = operatie care sa primeasca drept input o lista de numere naturale L si sa intoarca
+** sublista lui L formata din patratele perfecte din L;
+
+op patratperfectaux : Nat Nat -> Bool
+op patratperfect : Nat -> Bool
+op pp : Lista -> Lista
+
+ceq patratperfectaux(N, M) = true if ( N * N == M ) .
+ceq patratperfectaux(N, M) = false if N * N > M . 
+eq patratperfectaux(N, M) = patratperfectaux(s(N), M) .
+
+eq patratperfect(0) = true .
+eq patratperfect(1) = true .
+ceq patratperfect(N) = patratperfectaux(2,N) if N > 1 .
+
+eq pp(nil) = nil .
+ceq pp(N L) = N pp(L) if patratperfect(N) .
+ceq pp(N L) = pp(L) if not patratperfect(N) .
+** END
+
+ceq alleven(N) = 2 divides N if N < 10 .
+ceq alleven(N) = alleven(N quo 10) and alleven(N rem 10) if N >= 10 .
+
+eq alleven2(0) = true .
+eq alleven2(Z) = alleven2(Z quo 10) and 2 divides (Z rem 10) .
+
+
+ceq allodd(N) = not (2 divides N) if N < 10 .
+ceq allodd(N) = allodd(N quo 10) and allodd(N rem 10) if N >= 10 .
+}
