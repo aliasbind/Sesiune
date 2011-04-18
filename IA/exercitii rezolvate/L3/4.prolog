@@ -1,8 +1,19 @@
-% echilateral(:pt1, :pt2, :pt3)
-% verifica daca punctele p1, p2 si p3
-% formeaza un triunghi echilateral
+% Author:  Roman Laura grupa 242
+% Date: 4/17/2011
 
-echilateral(pt(X1, Y1), pt(X2, Y2), pt(X3, Y3)) :-
-  (sqrt( (X2-X1)^2 + (Y2-Y1)^2) =:= sqrt( (X3-X2)^2 + (Y3-Y2)^2 )), 
-  (sqrt( (X2-X1)^2 + (Y2-Y1)^2) =:= sqrt( (X3-X1)^2 + (Y3-Y1)^2 )),
-  (sqrt( (X3-X1)^2 + (Y3-Y1)^2) =:= sqrt( (X3-X2)^2 + (Y3-Y2)^2 )), !.
+% distanta(+pt1,+pt2,-R)
+% returneaza in R distanta dintre cele doua puncte
+distanta(pt(X1,Y1),pt(X2,Y2), R) :- sqrt((X2-X1)*(X2-X1) + (Y2-Y1)*(Y2-Y1),R).
+
+% echilateral(+pt1,+pt2,+pt3)
+% verifica daca punctele formeaza un triunghi echilateral
+
+echilateral(pt(X1,Y1),pt(X2,Y2),pt(X3,Y3)):- %calculeaza lungimile celor 3 laturi
+                                         distanta(pt(X1,Y1),pt(X2,Y2), R1),
+                                         distanta(pt(X1,Y1),pt(X3,Y3), R2),
+                                         distanta(pt(X2,Y2),pt(X3,Y3), R3),
+                                         %aici verifica daca punctele formeaza un triunghi
+                                         (R1 < R2+R3 ; R2 < R1+R3 ; R3 < R1+R2),
+                                         %aici verifica daca toate laturile sunt egale
+                                         %caz in care este echilateral
+                                         (R1 =:= R2 , R1 =:= R3 , R2 =:= R3).
