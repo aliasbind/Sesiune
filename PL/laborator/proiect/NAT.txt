@@ -1,0 +1,52 @@
+mod! NAT1{
+
+[NzNat < Nat]
+
+op 0 : -> Nat
+op s : Nat -> NzNat
+ops (_+_) (_*_) (_-_) : Nat Nat -> Nat
+ops (_<=_) (_<_) : Nat Nat -> Bool
+ops (_div_) (_mod_) : Nat NzNat -> Nat
+op gcd : Nat Nat -> Nat
+op prim : Nat -> Bool
+op aux : Nat Nat -> Bool
+
+vars X Y : Nat
+vars Z A : NzNat
+
+eq aux(Z,Z) = true .
+ceq aux(Z,A) = aux(Z,s(A)) if 0 < (Z mod A) .
+ceq aux(Z,A) = false if not 0 < (Z mod A) .
+
+eq prim(0) = false .
+eq prim(s(0)) = true .
+ceq prim(Z) = aux(Z,s(s(0))) if s(0) < Z .
+
+eq X + 0 = X .
+eq X + s(Y) = s(X + Y) .
+
+eq X * 0 = 0 .
+eq X * s(Y) = (X * Y) + X .
+
+eq X - 0 = X .
+eq s(X) - s(Y) = X - Y .
+
+eq 0 <= X = true .
+eq s(X) <= 0 = false .
+eq s(X) <= s(Y) = X <= Y .
+
+eq 0 < s(X) = true .
+eq s(X) < 0 = false .
+eq X < X = false .
+eq s(X) < s(Y) = X < Y .
+
+ceq X div Z = 0 if X < Z .
+ceq X div Z = s((X - Z) div Z) if Z <= X .
+
+ceq X mod Z = X if X < Z .
+ceq X mod Z = (X - Z) mod Z if Z <= X .
+
+eq gcd(0,X) = X .
+eq gcd(Z,X) = gcd(X mod Z,Z) .
+                                                     
+}

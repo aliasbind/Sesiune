@@ -1,0 +1,58 @@
+mod! EXCULISTE{
+
+extending (NAT)
+
+[Nat < Lista , PerNat , PerLista]
+
+op nil : -> Lista
+op __ : Lista Lista -> Lista {assoc id: nil prec 20}
+op [_;_] : Lista Lista -> PerLista {prec 30}
+op perip : Lista -> PerLista
+** perip(L) = [ L1 ; L2 ], unde:
+** L1 = lista elementelor din L aflate pe pozitii impare in L,
+** L2 = lista elementelor din L aflate pe pozitii pare in L,
+** cu pozitiile numerotate incepand de la 1
+** si cu L1 si L2 calculate printr-o singura parcurgere a listei L
+op concat : PerLista PerLista -> PerLista
+** concatenarea de perechi de liste
+op eroare : -> PerNat 
+op {_;_} : Nat Nat -> PerNat
+op minpoz : Lista -> PerNat
+** minpoz(L) = { minimul din lista L ; pozitia minimului din lista L },
+** calculate cu o singura parcurgere a listei
+** va intoarce prima pozitie a minimului daca acesta este duplicat in lista
+** intoarce eroare atunci cand L este vida
+op min : PerNat PerNat -> PerNat
+** operatie auxiliara pentru calcularea lui minpoz
+op succ : PerNat -> PerNat
+** operatie auxiliara pentru calcularea lui minpoz
+op minpoz2 : Lista -> PerNat
+** ca si minpoz, doar ca intoarce ultima pozitie a minimului
+op min2 : PerNat PerNat -> PerNat
+** operatie auxiliara pentru calcularea lui minpoz2
+
+vars X Y X1 Y1 : Nat
+vars L M L1 M1 : Lista
+
+eq concat([ L ; M ],[ L1 ; M1 ]) = [ L L1 ; M M1 ] . 
+
+eq perip(nil) = [ nil ; nil ] .
+eq perip(X) = [ X ; nil ] .
+eq perip(X Y L) = concat([ X ; Y ],perip(L)) .
+
+eq minpoz(nil) = eroare .
+eq minpoz(X) = { X ; 1 } .
+eq minpoz(X Y L) = min({ X ; 1 },succ(minpoz(Y L))) .
+
+ceq min({ X ; Y },{ X1 ; Y1 }) = { X ; Y } if X <= X1 .
+ceq min({ X ; Y },{ X1 ; Y1 }) = { X1 ; Y1 } if X > X1 .
+
+eq succ({ X ; Y }) = { X ; s(Y) } .
+
+eq minpoz2(nil) = eroare .
+eq minpoz2(X) = { X ; 1 } .
+eq minpoz2(X Y L) = min2({ X ; 1 },succ(minpoz2(Y L))) .
+
+ceq min2({ X ; Y },{ X1 ; Y1 }) = { X ; Y } if X < X1 .
+ceq min2({ X ; Y },{ X1 ; Y1 }) = { X1 ; Y1 } if X >= X1 .
+}

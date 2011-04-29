@@ -1,0 +1,57 @@
+mod! INT1{
+
+extending (NAT1)
+
+[Nat Neg < Int]
+
+op -_ : NzNat -> Neg
+op -_ : Int -> Int
+ops (_+_) (_*_) (_-_) : Int Int -> Int 
+op abs : Int -> Nat
+ops (_<=_) (_<_) (=/=) : Int Int -> Bool
+op gcd : Int Int -> Nat
+op _div_ : Int Int -> Int
+
+vars M N : Nat
+vars I J : Int
+
+eq M div I = - (M div abs(I)) .
+eq I div M = - (abs(I) div M) .
+eq I div J = (abs(I) div abs(J)) .
+
+eq gcd(I,J) = gcd(abs(I),abs(J)) .
+
+eq (- N) <= 0 = true .
+eq 0 <= (- s(N)) = false .
+eq (- N) <= M = true .
+eq N <= (- s(M)) = false .
+eq (- s(N)) <= (- s(M)) = (- N) <= (- M) .
+
+eq 0 < - N = false .
+eq (- s(N)) < 0 = true .
+eq I < I = false .
+eq (- s(N)) < s(M) = true .
+eq s(N) < (- s(M)) = false .
+eq (- s(N)) < (- s(M)) = (- N) < (- M) .
+
+eq I =/= I = false .
+ceq I =/= J = true if I < J or J < I . 
+
+eq abs(N) = N .
+ceq abs(I) = - I if I < 0 .
+
+eq - 0 = 0 . ** ecuatia (1)
+eq - - N = N .
+
+eq I + 0 = I . ** poate fi omisa, datorita ecuatiilor (1) si (2)
+eq 0 + I = I . ** poate fi omisa, datorita ecuatiilor (1) si (2)
+eq (- N) + (- M) = - (N + M) . ** ecuatia (2)
+eq (- s(N)) + s(M) = (- N) + M .
+eq s(N) + (- s(M)) = N + (- M) .
+
+eq (- N) * M = - (N * M) .
+eq N * (- M) = - (N * M) .
+eq (- N) * (- M) = N * M .
+
+eq I - J = I + (- J) . 
+}

@@ -1,0 +1,45 @@
+mod* SEMIGRUP{
+
+[Elt]
+
+op _+_ : Elt Elt -> Elt {assoc}
+}
+
+mod! MORFISM(S1 :: SEMIGRUP, S2 :: SEMIGRUP){
+
+op h : Elt.S1 -> Elt.S2 {strat: (0 1) }
+
+vars X Y : Elt.S1
+
+eq h(X + Y) = h(X) + h(Y) .
+}
+mod! LISTE3(T :: TRIV){
+
+[Elt < Lista]
+
+op __ : Lista Lista -> Lista {assoc}
+}
+
+mod! MINNAT{
+
+extending (NAT)
+
+op min : Nat Nat -> Nat {comm assoc}
+
+vars X Y : Nat 
+
+ceq min(X,Y) = X if X <= Y .
+ceq min(X,Y) = Y if Y < X .
+}
+
+mod! MINLIST{
+
+protecting(MORFISM(S1 <= view to LISTE3(NAT) {sort Elt -> Lista, op _+_ -> __},
+S2 <= view to MINNAT {sort Elt -> Nat, op _+_ -> min}))
+
+var X : Nat
+
+eq h(X) = X .
+}
+
+

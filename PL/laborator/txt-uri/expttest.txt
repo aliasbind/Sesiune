@@ -1,0 +1,93 @@
+** Modulul de mai jos contine rezolvarile exercitiilor pregatitoare pentru testul de
+** saptamana viitoare. Observati ca operatia alleven poate, intr-adevar, sa fie implementata
+** numai cu ecuatii neconditionate - a se vedea alleven2.
+
+** A se vedea la sfarsitul acestui fisier exercitiile tema pregatitoare pentru testul de
+** saptamana viitoare!
+
+mod! EXPTTEST{
+
+protecting (NAT)
+
+[Nat < Lista]
+
+op nil : -> Lista
+op __ : Lista Lista -> Lista {assoc id: nil}
+
+op m5 : Lista -> Lista
+** m5(L) = sublista multiplilor de 5 din L
+
+op nedivizibil : NzNat Nat -> Bool
+** nedivizibil(Z,X) = true daca si numai daca X nu se divide cu niciunul dintre
+** numerele naturale cuprinse intre Z si X inclusiv, ceea ce este echivalent cu faptul
+** ca X nu se divide cu niciunul dintre numerele naturale cuprinse intre Z si
+** radacina patrata a lui X inclusiv
+
+op prim : Nat -> Bool
+** prim(N) = true daca si numai daca N este prim
+
+op lprime : Nat Nat -> Lista
+** lprime(N,M) = lista numerelor prime cuprinse intre N si M
+
+op alleven : Nat -> Bool
+op alleven2 : Nat -> Bool
+** alleven(N) = alleven2(N) = true daca si numai daca N are toate cifrele pare
+
+op allodd : Nat -> Bool
+** allodd(N) = true daca si numai daca N are toate cifrele impare
+
+vars N M : Nat
+var Z : NzNat
+var L : Lista
+
+eq m5(nil) = nil .
+ceq m5(N L) = N m5(L) if 5 divides N .
+ceq m5(N L) = m5(L) if not (5 divides N) .
+
+ceq nedivizibil(Z,N) = nedivizibil(s(Z),N) and not (Z divides N) if Z * Z <= N .
+ceq nedivizibil(Z,N) = true if Z * Z > N .
+
+** op _divides_ : NzNat Nat -> Bool este predefinita in modulul NAT si semnifica relatia
+** "divide pe"
+
+eq prim(0) = false .
+eq prim(1) = false .
+ceq prim(N) = nedivizibil(2,N) if N > 1 .
+
+ceq lprime(N,M) = nil if N > M .
+ceq lprime(N,M) = N lprime(s(N),M) if prim(N) and N <= M .
+ceq lprime(N,M) = lprime(s(N),M) if (not prim(N)) and N <= M .
+
+** aici este ok sa folosim s(N), pentru ca il folosim in dreapta egalului, asadar CafeObj-ul
+** nu trebuie sa rescrie ceva in s(altceva), ci s(ceva) in altceva
+
+ceq alleven(N) = 2 divides N if N < 10 .
+ceq alleven(N) = alleven(N quo 10) and alleven(N rem 10) if N >= 10 .
+
+** ops (_quo_) (_rem_) : Nat NzNat -> Nat sunt predefinite in modulul NAT si semnifica
+** respectiv catul (quotient) si restul (remainder) impartirii intregi
+
+eq alleven2(0) = true .
+eq alleven2(Z) = alleven2(Z quo 10) and 2 divides (Z rem 10) .
+
+** Z este de sort NzNat (= nonzero natural = natural nenul, si nu unifica, cu 0)!
+
+ceq allodd(N) = not (2 divides N) if N < 10 .
+ceq allodd(N) = allodd(N quo 10) and allodd(N rem 10) if N >= 10 .
+}
+
+** Exercitii tema pregatitoare pentru testul de saptamana viitoare: sa se scrie un modul
+** pentru liste de numere naturale, incluzand modulul NAT predefinit, care sa contina
+** urmatoarele operatii, impreuna cu operatiile auxiliare necesare pentru implementarea lor:
+
+** p3 = operatie care sa primeasca drept input o lista de numere naturale L si sa intoarca
+** sublista lui L formata din puterile naturale ale lui 3 din L;
+
+** pp = operatie care sa primeasca drept input o lista de numere naturale L si sa intoarca
+** sublista lui L formata din patratele perfecte din L;
+
+** lnrdiv = operatie care sa primeasca drept input o lista de numere naturale L si sa
+** intoarca lista formata din numarul divizorilor naturali ai elementelor lui L, cu
+** conventia ca numarul divizorilor naturali ai lui 0 sa fie considerat 0 (pentru a nu mai
+** fi necesara introducerea unei constante infinit de sort Nat); de exemplu:
+** lnrdiv(2 4 1 0 3 2 5 6 2) = 2 3 1 0 2 2 2 4 2

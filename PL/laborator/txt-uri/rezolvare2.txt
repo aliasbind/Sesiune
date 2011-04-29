@@ -1,0 +1,33 @@
+mod! REZOLVARE2{
+
+protecting (NAT)
+
+[Nat < Lista]
+
+op nil : -> Lista
+op __ : Lista Lista -> Lista {assoc id: nil}
+
+ops nsn cresc : Lista -> Lista
+op ensn : Nat -> Bool
+op ensncun : Nat Nat -> Bool
+op crescdela : Nat Lista -> Lista
+
+vars N M : Nat 
+var L : Lista
+
+eq ensn(N) = ensncun(N,0) .
+
+ceq ensncun(N,M) = true if N == M * s(M) .
+ceq ensncun(N,M) = false if N < M * s(M) .
+ceq ensncun(N,M) = ensncun(N,s(M)) if N > M * s(M) .
+
+eq nsn(nil) = nil .
+ceq nsn(N L) = N nsn(L) if ensn(N) .
+ceq nsn(N L) = nsn(L) if not ensn(N) .
+
+eq crescdela(N,nil) = nil .
+ceq crescdela(N,M L) = M crescdela(M,L) if N <= M .
+ceq crescdela(N,M L) = crescdela(N,L) if N > M .
+
+eq cresc(L) = crescdela(0,L) .
+}

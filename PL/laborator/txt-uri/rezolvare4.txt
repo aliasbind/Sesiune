@@ -1,0 +1,39 @@
+mod! REZOLVARE4{
+
+protecting (NAT)
+
+[Nat < Lista]
+
+op nil : -> Lista
+op __ : Lista Lista -> Lista {assoc id: nil}
+
+ops lp3 cdivu : Lista -> Lista
+
+op ep3 : Nat -> Bool
+op ep3aux : Nat Nat -> Bool
+
+op _divide-pe_ : Nat Nat -> Bool
+
+vars N M : Nat
+var Z : NzNat
+var L : Lista
+
+eq ep3(N) = ep3aux(N,1) .
+
+ceq ep3aux(N,M) = ep3aux(N,3 * M) if N > M .
+eq ep3aux(N,N) = true .
+ceq ep3aux(N,M) = false if N < M .
+
+eq lp3(nil) = nil .
+ceq lp3(N L) = N lp3(L) if ep3(N) .
+ceq lp3(N L) = lp3(L) if not ep3(N) .
+
+eq Z divide-pe N = Z divides N .
+eq 0 divide-pe 0 = true .
+eq 0 divide-pe Z = false .
+
+eq cdivu(nil) = nil .
+eq cdivu(N) = N .
+ceq cdivu(N M L) = N cdivu(M L) if N divide-pe M .
+ceq cdivu(N M L) = N if not (N divide-pe M) . 
+}

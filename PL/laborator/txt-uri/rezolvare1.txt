@@ -1,0 +1,36 @@
+mod! REZOLVARE1{
+
+extending (NAT)
+
+[Nat < Lista]
+
+op nil : -> Lista
+op __ : Lista Lista -> Lista {assoc id: nil}
+
+ops e2 nfact : Lista -> Lista
+op e2pt : NzNat -> Nat
+op isnfact : Nat -> Bool
+op estenfact : NzNat NzNat -> Bool 
+
+var N : Nat
+vars X Z : NzNat
+var L : Lista
+
+ceq e2pt(Z) = 0 if not(2 divides Z) .
+ceq e2pt(Z) = s(e2pt(Z quo 2)) if 2 divides Z .
+
+eq e2(nil) = nil .
+eq e2(0 L) = e2(L) .
+eq e2(Z L) = e2pt(Z) e2(L) .
+
+eq isnfact(0) = false .
+eq isnfact(Z) = estenfact(Z,1) .   
+
+eq estenfact(Z,Z) = true .
+ceq estenfact(X,Z) = false if (Z =/= X) and not (Z divides X) .
+ceq estenfact(X,Z) = estenfact(X quo Z,s(Z)) if (Z =/= X) and (Z divides X) .
+
+eq nfact(nil) = nil .
+ceq nfact(N L) = N nfact(L) if isnfact(N) .
+ceq nfact(N L) = nfact(L) if not isnfact(N) .
+}

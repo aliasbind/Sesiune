@@ -1,0 +1,223 @@
+mod! FIBO{
+
+extending (NAT) ** nu merge protecting din cauza operatiei fib
+
+[Nat < Lista] ** ordonare pe sorturi <=> incluziune intre multimile suport corespunzatoare
+** adica orice numar natural N este o lista (cu un singur element, anume N)
+** avem o algebra ordonat-sortata
+
+op fib : Nat -> Nat ** fib(N) = termenul de indice N din sirul lui Fibonacci
+op nil : -> Lista ** lista vida, care este element neutru la concatenare
+** este obligatoriu sa fie declarata inainte de concatenare
+** nu avem nevoie de ea in acest modul, dar respectam uzanta declararii concatenarii de liste
+op __ : Lista Lista -> Lista {assoc id: nil} ** concatenarea de liste
+** cu ajutorul concatenarii se creeaza sortul Lista
+** adica din numerele naturale, prin concatenari succesive, se obtin listele finite nevide
+** lista vida nu unifica cu nicio lista care are macar un element numar natural
+** adica nil nu unifica cu nicio lista care are cap
+** pentru ca nil si orice lista nevida sunt in forma normala, si nu sunt literal identice
+op sirfib : Nat -> Lista ** sirfib(N) = sirul lui Fibonacci pana la indicele N
+
+var N : Nat
+var X : NzNat
+
+eq fib(0) = 0 .
+eq fib(1) = 1 .
+ceq fib(N) = fib(p(N)) + fib(p(p(N))) if N > 1 .
+** conditia ne asigura de confluenta si corectitudinea rescrierii
+** privitor la cofluenta rescrierii:
+** la un moment dat, in rescrierea unui fib(N), poate fi aplicata exact una dintre cele trei
+** ecuatii de mai sus, asadar rescrierea este unica
+** privitor la corectitudinea ecuatiei conditionate de mai sus:
+** (nu exista p(0) si nici p(p(1)), pentru ca, in NAT, operatia predecesor p : NzNat -> Nat)
+** datorita faptului ca domeniul lui p este NzNat, vom avea avertisment de la CafeObj:
+** "warning: axiom ... contains error operators"
+** aici acest avertisment nu este o problema, pentru ca stim ca acea ecuatie este
+** intotdeauna aplicata corect
+
+eq sirfib(0) = fib(0) .
+** mergea si: eq sirfib(0) = 0 .
+eq sirfib(X) = sirfib(p(X)) fib(X) .
+** X nu unifica cu 0, pentru ca este de sort NzNat, iar 0 este constanta de sort Nat
+** (i. e. operatie zeroara de sort Nat), deci avem confluenta rescrierii, tot ca mai sus,
+** indeplinita in mod trivial, datorita unicitatii rescrierii
+** aici am putut scrie ecuatie neconditionata pentru realizarea recurentei, ceea ce este de
+** dorit, deoarece aplicarea ecuatiilor conditionate in rescriere consuma mai mult timp
+}
+
+
+
+mod! MAXLIST{
+
+extending (NAT)
+
+[Nat < Lista]
+
+op nil : -> Lista
+op __ : Lista Lista -> Lista {assoc id: nil}
+op max : Nat Nat -> Nat ** maximul dintre doua numere naturale
+op maxlist : Lista -> Nat ** maximul dintr-o lista de numere naturale
+
+vars N M : Nat
+var L : Lista
+
+ceq max(N,M) = N if N >= M .
+ceq max(N,M) = M if N < M .
+
+eq maxlist(nil) = 0 . ** aceasta ecuatie poate lipsi
+eq maxlist(N) = N .
+eq maxlist(N M L) = max(N,maxlist(M L)) .
+}
+
+
+
+mod! LISTE{
+
+protecting (NAT)
+
+[Nat < Lista]
+
+op nil : -> Lista
+op __ : Lista Lista -> Lista {assoc id: nil}
+op sublista : Lista Lista -> Bool ** determina daca prima lista e sublista a celei de-a doua
+** (cu elementele in ordine, dar nu neaparat pe pozitii consecutive)
+** ca orice relatie, sublista este definita ca operatie de sort rezultat boolean
+** (vezi intr-un modul de mai jos detalii)
+
+vars X X1 : Nat
+vars L L1 : Lista
+
+eq sublista(nil,L) = true .
+eq sublista(X L,nil) = false .
+eq sublista(X L,X L1) = sublista(L,L1) .
+ceq sublista(X L,X1 L1) = sublista(X L,L1) if X =/= X1 .
+** sunt cele 4 cazuri de mai sus de analizat, si astfel am creat definitia recursiva a
+** operatiei sublista
+}
+
+
+
+mod! MULT{
+
+protecting (NAT)
+
+[Nat < Multime]
+** o multime va fi o lista fara duplicate, dar, pentru operatiile de mai jos, prezenta
+** duplicatelor nu este o problema
+
+op nil : -> Multime
+op __ : Multime Multime -> Multime {assoc id: nil prec 20} ** concatenarea, nu reuniunea
+op _apartine_ : Nat Multime -> Bool {prec 30}
+op _inclusa_ : Multime Multime -> Bool {prec 30} ** incluziune de multimi, nu sublista
+op _inclusa-strict_ : Multime Multime -> Bool {prec 30}
+** Bool este sortul din modulul BOOL predefinit (modulul boolean), care este inclus automat
+** in orice alt modul in modul protecting
+** BOOL contine valorile de adevar si operatiile booleene
+** prezenta precedentelor ne permite sa scriem fara paranteze ecuatiile de mai jos
+** cele 3 relatii de mai sus sunt definite ca orice relatii, ca operatii de aritate
+** corespunzatoare si de sort rezultat Bool (sortul boolean) (desigur, ele iau valoarea
+** true daca parametrii lor sunt in relatie si false in caz contrar)
+
+vars X Y : Nat
+vars M N : Multime
+
+eq X apartine nil = false . 
+eq X apartine X M = true .
+ceq X apartine Y M = X apartine M if X =/= Y .
+** observati cum se obtin atat recurenta, cat si confluenta, prin separarea cazurilor posibile
+
+eq nil inclusa M = true .
+eq X M inclusa nil = false .
+eq X M inclusa Y N = X apartine Y N and M inclusa Y N .
+
+eq M inclusa-strict N = M inclusa N and not(N inclusa M) . 
+** la argumentul lui not nu mergea N =/= M, pentru ca egalitatea aici este egalitatea de
+** liste; de exemplu, listele 1 2 3 si 3 1 2 nu coincid, pentru ca nu sunt literal identice,
+** dar multimile 1 2 3 si 3 1 2 coincid
+** se putea folosi N =/= M daca dadeam concatenarea comutativa, prin atributul comm, si
+** dadeam in reduceri numai multimi, adica liste fara duplicate
+}
+
+
+
+mod! PERMUT{
+
+extending (NAT) ** din cauza operatiilor nrinv si nrmmic nu merge incluziune protecting
+
+[Nat < Permutare]
+
+op nil : -> Permutare
+op __ : Permutare Permutare -> Permutare {assoc id: nil}
+** permutarile vor fi ale multimii {1,2,...,N} si vor fi reprezentate prin liste de lungime
+** N continand toate numerele naturale de la 1 la N in ordini diferite, al J-lea element
+** dintr-o astfel de lista reprezentand valoarea permutarii in J
+op nrinv : Permutare -> Nat
+** aplicata unei permutari, nrinv intoarce numarul de inversiuni ale acelei permutari
+** aplicata unei liste oarecare, nrinv intoarce suma dupa fiecare element X al listei din
+** numarul elementelor din lista care se afla la dreapta lui X si sunt mai mici decat X
+** conventia care ne va folosi la scrierea definitiei recurente a lui nrinv va fi:
+** nrinv(nil) = 0
+op nrmmic : Nat Permutare -> Nat
+** nrmmic(X,P) intoarce numarul de elemente din P care sunt mai mici decat X
+** este corect si ne va servi la scrierea recursiei faptul ca nrmmic(X,nil) = 0 
+op inversa : Permutare -> Permutare ** determina inversa unei permutari ca functie bijectiva
+** functioneaza numai aplicata la permutari scrise corect in modul descris mai sus
+op linversa : Permutare Nat -> Permutare ** linversa(P,N) = inversa permutarii P a multimii
+** {1,2,...,N}; daca P si N nu sunt ca mai sus, atunci nu da rezultatul dorit  
+op lungime : Permutare -> Nat ** lungime(P) = numarul de elemente al listei P
+op detord : Nat Permutare Nat -> Permutare ** detord(X,P,Y) = coada inversei permutarii P
+** a multimii {1,2,...,Y}, incepand de la indicele X; merge doar pe date corecte
+op cauta : Nat Permutare -> Nat ** cauta(X,P) = valoarea inversei permutarii P in elementul
+** X, care este egala cu pozitia pe care se afla X in P; merge doar pe date de aceasta forma
+op _o_ : Permutare Permutare -> Permutare ** compunerea de permutari pe {1,2,...,N}
+op _de_ : Permutare Nat -> Nat ** P de X = valoarea permutarii P in elementul X, adica
+** al X-lea element al listei prin care este reprezentata permutarea P
+op _la_ : Permutare Nat -> Permutare ** ridicarea unei permutari la o putere naturala
+op id : Nat -> Permutare ** id(N) = functia identitate a multimii {1,2,...,N}, adica
+** lista 1 2 ... N
+
+vars X Y : Nat
+var Z : NzNat
+vars P Q : Permutare
+
+eq nrinv(nil) = 0 .
+eq nrinv(X P) = nrmmic(X,P) + nrinv(P) .
+
+eq nrmmic(X,nil) = 0 .
+ceq nrmmic(X,Y P) = nrmmic(X,P) if X <= Y .
+** am pus mai mic sau egal ca sa poata continua recursia si pentru liste cu duplicate date
+** ca parametru la nrinv
+ceq nrmmic(X,Y P) = s(nrmmic(X,P)) if X > Y .
+** s este operatia succesor din modulul predefinit NAT
+
+** operatiile de mai sus pot servi la selectarea permutarilor cu numar de inversiuni par si
+** a celor cu numar de inversiuni impar din lista de liste reprezentand toate permutarile
+** multimii {1,2..,N} care este obtinuta in modulul cu permutari oarecare (adica nu neaparat
+** circulare) din fisierul cu lectia 2 de laborator
+
+eq lungime(nil) = 0 .
+eq lungime(X P) = s(lungime(P)) .
+
+eq inversa(nil) = nil .
+eq inversa(X P) = linversa(X P,lungime(X P)) .
+
+eq linversa(P,X) = detord(1,P,X) .
+
+ceq detord(X,P,Y) = nil if X > Y .
+ceq detord(X,P,Y) = cauta(X,P) detord(s(X),P,Y) if X <= Y .
+
+eq cauta(X,X P) = 1 .
+ceq cauta(X,Y P) = s(cauta(X,P)) if X =/= Y .
+
+eq Q o nil = nil .
+eq Q o (X P) = (Q de X) (Q o P) .
+
+eq (X P) de 1 = X .
+ceq (X P) de Z = P de p(Z) if Z >= 2 . 
+
+eq id(0) = nil .
+eq id(Z) = id(p(Z)) Z .
+
+eq P la 0 = id(lungime(P)) .
+eq P la Z = (P la p(Z)) o P .
+}

@@ -1,0 +1,7 @@
+PROBLEMA CELOR N DAME, pentru N natural nenul: sa se determine toate modurile in care pot fi plasate N dame pe o tabla de sah NxN, astfel incat doua cate doua sa nu se atace.
+EXERCITIUL 1: Sa se rezolve in CafeObj problema celor N dame, fara a genera toate permutarile de N elemente. Solutia pentru un anumit N natural nenul va fi data sub forma de lista de liste de N numere naturale cuprinse intre 1 si N, in care cel de-al I-lea numar reprezinta numarul coloanei pe care se afla dama de pe linia I, pentru orice I natural intre 1 si N.
+
+EXERCITIUL 2: Sa se creeze un automat finit determinist printr-un modul CafeObj. Functia de tranzitie va fi descrisa prin ecuatii ale modulului.
+
+EXERCITIUL 3: Sa se creeze un automat finit nedeterminist printr-un modul CafeObj. Functia de tranzitie va fi descrisa prin ecuatii ale modulului.
+

@@ -1,0 +1,21 @@
+** Solutie data de un student: implementarea lui cresc fara operatii auxiliare:
+
+mod! REZOLVARE2STUD{
+
+protecting (NAT)
+
+[Nat < Lista]
+
+op nil : -> Lista
+op __ : Lista Lista -> Lista {assoc id: nil}
+
+op cresc : Lista -> Lista
+
+vars N M : Nat 
+var L : Lista
+
+eq cresc(nil) = nil .
+eq cresc(N) = N .
+ceq cresc(N M L) = N cresc(M L) if M >= N .
+ceq cresc(N M L) = cresc(N L) if M < N .
+}

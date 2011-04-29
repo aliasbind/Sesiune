@@ -1,0 +1,33 @@
+mod! RAT1{
+
+extending (INT1)
+
+[Int < Rat ]
+
+op _/_ : Int Int -> Rat
+op _/_ : Rat Rat -> Rat
+ops (_+_) (_-_) (_*_) : Rat Rat -> Rat
+op -_ : Rat -> Rat
+op numitorprim : Rat -> Bool {prec: 1000}
+
+vars I J G H : Int
+
+eq numitorprim(I) = true .
+ceq numitorprim(I / G) = true if prim( abs(G)) .
+ceq numitorprim(I / G) = false if not prim( abs(G)) .
+
+eq I / s(0) = I .
+
+ceq I / J = (- I) / (- J) if J < 0 .
+
+ceq (I / G) / (H / K) = (I * K) / (G * H) if G =/= 0 and H =/= 0 .
+ceq I / G = (I div gcd(I,G)) / (G div gcd(I,G)) if gcd(I,G) =/= s(0) .
+
+ceq (I / G) * (J / H) = (I * J) / (G * H) if G =/= 0 and H =/= 0 .
+
+ceq (I / G) + (J / H) = ((I * H) + (G * J)) / (G * H) if G =/= 0 and H =/= 0 .
+
+ceq (I / G) - (J / H) = ((I * H) - (G * J)) / (G * H) if G =/= 0 and H =/= 0 .
+
+ceq - (I / G) = (- I) / G if G =/= 0.
+}   

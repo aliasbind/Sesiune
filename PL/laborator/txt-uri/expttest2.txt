@@ -1,0 +1,35 @@
+mod! EXPTTEST2{
+
+protecting (NAT)
+
+[Nat < Lista]
+
+op nil : -> Lista
+op __ : Lista Lista -> Lista {assoc id: nil}
+
+op lm3 : Nat Nat -> Lista
+** lm3(N,M) = lista multiplilor de 3 dintre N si M inclusiv
+
+ops altpi ulti ultp : Nat -> Bool
+** altpi(N) = true daca si numai daca paritatile cifrelor lui N alterneaza
+** de exemplu: altpi(12345) = true, altpi(347052) = true, altpi(11223) = false
+** ulti(N) = true daca si numai daca paritatile cifrelor lui N alterneaza si ulima cifra
+** a lui N este impara
+** ultp(N) = true daca si numai daca paritatile cifrelor lui N alterneaza si ulima cifra
+** a lui N este para
+
+vars N M : Nat
+
+ceq lm3(N,M) = nil if N > M .
+ceq lm3(N,M) = N lm3(s(N),M) if N <= M and 3 divides N .
+ceq lm3(N,M) = lm3(s(N),M) if N <= M and not(3 divides N) .  
+
+eq altpi(N) = ulti(N) or ultp(N) .
+
+ceq ulti(N) = not(2 divides N) if N < 10 .
+ceq ulti(N) = ulti(N rem 10) and ultp(N quo 10) if N >= 10 .
+
+ceq ultp(N) = 2 divides N if N < 10 .
+ceq ultp(N) = ultp(N rem 10) and ulti(N quo 10) if N >= 10 .
+}
+

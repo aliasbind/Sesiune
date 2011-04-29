@@ -1,0 +1,24 @@
+mod! OPINNAT{
+
+extending (NAT) ** nu merge protecting, din cauza operatiilor de mai jos
+
+op factorial : Nat -> Nat 
+op _! : Nat -> Nat ** tot factorialul, cu o alta notatie
+op _la_ : Nat Nat -> Nat ** ridicarea la putere
+** a se vedea in lectia 1 de ce nu putem folosi succesorul pentru a crea recursia, ci avem
+** nevoie de predecesor (p : NzNat -> Nat in modulul predefinit NAT, unde NzNat este sortul
+** naturalelor nenule), si de ce 0 nu unifica, cu variabilele de sort NzNat
+
+var N : Nat 
+vars X P : NzNat
+
+eq factorial(0) = 1 .
+eq factorial(X) = X * factorial(p(X)) .
+
+eq 0 ! = 1 .
+eq X ! = (p(X) !) * X . ** sunt obligatorii parantezele, intrucat nu am dat precedente
+
+eq N la 0 = 1 .
+eq 0 la X = 0 .
+eq X la P = X * (X la p(P)) . 
+}

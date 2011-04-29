@@ -1,0 +1,31 @@
+mod! REZOLVARE3{
+
+protecting (NAT)
+
+[Nat < Lista]
+
+op nil : -> Lista
+op __ : Lista Lista -> Lista {assoc id: nil}
+
+ops inccresc cp : Lista -> Lista
+op ecp : Nat -> Bool
+op ecpcun : Nat Nat -> Bool
+
+vars N M : Nat
+var L : Lista
+
+eq inccresc(nil) = nil .
+eq inccresc(N) = N .
+ceq inccresc(N M L) = N inccresc(M L) if N <= M .
+ceq inccresc(N M L) = N if N > M .
+
+eq ecp(N) = ecpcun(N,0) .
+
+ceq ecpcun(N,M) = true if N == M * M * M .
+ceq ecpcun(N,M) = ecpcun(N,s(M)) if N > M * M * M .
+ceq ecpcun(N,M) = false if N < M * M * M .
+
+eq cp(nil) = nil .
+ceq cp(N L) = N cp(L) if ecp(N) .
+ceq cp(N L) = cp(L) if not ecp(N) .
+}
