@@ -1,0 +1,13 @@
+drop table departamente_pnu(cod dep)
+
+alter table angajati_pnu
+drop constraint fk_cod_dep;
+
+alter table angajati_pnu
+add constraint fk_cod_dep foreign key(cod_dep)
+references departamente_pnu(cod_dep) on delete set null;
+
+delete from departamente_pnu
+where cod_dep=20;
+
+rollback;

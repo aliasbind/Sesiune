@@ -1,0 +1,45 @@
+create table companie 
+( cod number(4) constraint pk_cod primary key,
+denumire varchar2(20) constraint c_den not null,
+capital number(4) constraint c_cap check(capital>1000),
+proprietar varchar2(20) );
+
+create table statie 
+( cod_statie number(4) constraint pk_cod_statie primary key,
+denumire varchar2(20) constraint c_den_statie not null,
+nr_angajati number(4) constraint c_nr_a check(nr_angajati>-1),
+cod_companie number(4),
+capacitate number(4) constraint c_capacitate check(capacitate>-1),
+constraint fk_cod_comp foreign key(cod_companie) references companie(cod)); --cheie externa
+
+create table produs
+( cod_produs number(4) constraint pk_cod_produs primary key,
+denumire varchar2(20) constraint c_den_prod not null,
+pret_vanzare number(5) constraint c_pret check(pret_vanzare>0));
+
+create table achizitie
+( cod_st number(4) not null,
+cod_prod number(4) not null,
+data_achizitie date not null,
+cantitate number(6) constraint c_cant check(cantitate>0),
+pret_achizitie number(6) constraint c_pret_achizitie check(pret_achizitie>0),
+constraint pk_achizitie primary key(cod_st,cod_prod,data_achizitie),
+constraint fk_codstatie foreign key(cod_st) references statie(cod_statie),
+constraint fk_codprodus foreign key(cod_prod) references produs(cod_produs));
+
+--inserare coloana oras in tabel statie
+alter table statie
+add(oras varchar2(50) not null);
+
+--2.
+select sum(nr_angajati) from statie
+where cod_statie in (select cod_statie
+                    from statie join achizitie on (cod_st=cod_statie)
+                    group by cod_statie
+                    having count(distinct cod_prod)>4);
+                    
+--alta varianta
+
+                    
+                    
+
