@@ -1,0 +1,63 @@
+** Arbori Binari
+** parcurgeri
+
+mod! ARBBIN{
+
+protecting (NAT)
+
+[Nat < Lista , Arbore]
+
+op nil : -> Arbore  ** arbore vid
+op _{_,_} : Nat Arbore Arbore -> Arbore
+op null : -> Lista ** lista de numere naturale vida
+op __ : Lista Lista -> Lista {assoc id: null}
+
+ops pre ino post drs lf : Arbore -> Lista 
+op h : Arbore -> Nat 
+op max : Nat Nat -> Nat
+op ex : -> Arbore ** un exemplu de arbore binar
+
+vars X Y : Nat
+vars A B : Arbore
+
+** parcurgere preordine
+eq pre(nil) = null .
+eq pre(X{A,B}) = X pre(A) pre(B) .
+
+** parcurgere inordine
+eq ino(nil) = null .
+eq ino(X{A,B}) = ino(A) X ino(B) .
+
+** parcurgere postordine
+eq post(nil) = null .
+eq post(X{A,B}) = post(A) post(B) X .
+
+** parcurgere dreapta-radacina-stanga
+eq drs(nil) = null .
+eq drs(X{A,B}) = drs(B) X drs(A) .
+
+** lista frunzelor
+eq lf(nil) = null .
+eq lf(X{nil,nil}) = X .
+ceq lf(X{A,B}) = lf(A) lf(B) if A =/= nil or B =/= nil .
+
+** maximul a doua numere naturale
+ceq max(X,Y) = X if X >= Y .
+ceq max(X,Y) = Y if X < Y .
+
+** inaltimea unui arbore
+eq h(nil) = 0 .
+eq h(X{A,B}) = s(max(h(A),h(B))) .
+
+
+
+eq ex = 1{2{nil,nil},3{nil,4{nil,nil}}} .
+}
+
+** red pre(ex) .
+** red ino(ex) .
+** red post(ex) .
+** red drs(ex) .
+** red lf(ex) .
+** red h(ex) .
+ 

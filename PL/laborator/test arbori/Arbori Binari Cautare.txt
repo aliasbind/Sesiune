@@ -1,0 +1,49 @@
+** Arbori binari de cautare
+
+mod! ARBCAUT{
+
+protecting (NAT)
+
+[Nat < Lista , Arbore]
+
+op nil : -> Arbore ** arbore vid
+op _{_,_} : Nat Arbore Arbore -> Arbore
+op null : -> Lista ** lista de numere naturale vida
+op __ : Lista Lista -> Lista {assoc id: null}
+
+ops ino drs : Arbore -> Lista
+op insert : Nat Arbore -> Arbore
+op insertlist : Lista Arbore -> Arbore
+ops sort sortdown : Lista -> Lista
+
+op ex : -> Arbore ** un exemplu de arbore binar
+
+vars X Y : Nat
+vars A B : Arbore
+var L : Lista
+
+** parcurgere inordine
+eq ino(nil) = null .
+eq ino(X{A,B}) = ino(A) X ino(B) .
+
+** parcurgere drs
+eq drs(nil) = null .
+eq drs(X{A,B}) = drs(B) X drs(A) .
+
+** insereaza element in arbore
+eq insert(Y,nil) = Y{nil,nil} .
+ceq insert(Y,X{A,B}) = X {insert(Y,A),B} if Y <= X .
+ceq insert(Y,X{A,B}) = X {A,insert(Y,B)} if Y > X .
+
+** insereaza lista de elemente in arbore
+eq insertlist(null,A) = A .
+eq insertlist(X L,A) = insert(X,insertlist(L,A)) .
+
+** sorteaza o lista folosind un arbore binar de cautare
+eq sort(L) = ino(insertlist(L,nil)) .
+
+** sorteaza descrescator o lista folosind un arbore binar de cautare
+eq sortdown(L) = drs(insertlist(L,nil)) .
+
+eq ex = 1{2{nil,nil},3{nil,4{nil,nil}}} .
+} 
