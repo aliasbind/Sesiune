@@ -10,13 +10,14 @@ Aveți mai jos link-uri la toate cursurile și seminariile as of
 06.11.2011 din anul 3. Majoritatea sunt scrise de Laura.
 
 Cursuri:
- * [SGBD](https://github.com/aliasbind/Sesiune/blob/master/SGBD/Cursuri/sgbd-full.pdf?raw=true)
- * [CGGC](https://github.com/aliasbind/Sesiune/blob/master/CGGC/Cursuri/cggc-full.pdf?raw=true)
- * [EDDP](https://github.com/aliasbind/Sesiune/blob/master/EDDP/Cursuri/eddp-curs-full.pdf?raw=true)
- * [PD](https://github.com/aliasbind/Sesiune/blob/master/PD/Cursuri/pd-full.pdf?raw=true)
+
+* [SGBD](https://github.com/aliasbind/Sesiune/blob/master/SGBD/Cursuri/sgbd-full.pdf?raw=true)
+* [CGGC](https://github.com/aliasbind/Sesiune/blob/master/CGGC/Cursuri/cggc-full.pdf?raw=true)
+* [EDDP](https://github.com/aliasbind/Sesiune/blob/master/EDDP/Cursuri/eddp-curs-full.pdf?raw=true)
+* [PD](https://github.com/aliasbind/Sesiune/blob/master/PD/Cursuri/pd-full.pdf?raw=true)
 
 Seminarii:
- * [EDDP](https://github.com/aliasbind/Sesiune/blob/master/EDDP/Seminarii/eddp-seminar-full.pdf)
+* [EDDP](https://github.com/aliasbind/Sesiune/blob/master/EDDP/Seminarii/eddp-seminar-full.pdf)
 
 **[Toate cursurile si seminariile de mai sus
-(zip)](https://github.com/aliasbind/Sesiune/blob/master/an3.zip?raw=true)**
+(zip)](https://github.com/downloads/aliasbind/Sesiune/an3.zip)**
