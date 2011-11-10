@@ -17,6 +17,7 @@ Cursuri:
 * [PD](https://github.com/aliasbind/Sesiune/blob/master/PD/Cursuri/pd-full.pdf?raw=true)
 
 Seminarii:
+
 * [EDDP](https://github.com/aliasbind/Sesiune/blob/master/EDDP/Seminarii/eddp-seminar-full.pdf)
 
 **[Toate cursurile si seminariile de mai sus
